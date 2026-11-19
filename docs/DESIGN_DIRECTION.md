@@ -1,13 +1,13 @@
 # Design direction
 
 Last updated: 19 November 2026 (Asia/Kolkata)
-Status: active exploration; concept v2 awaits explicit approval
+Status: concept v2 approved as the visual foundation; production usability validation required
 
 ## Current candidate
 
 ![Morrow concept v2](concepts/morrow-product-vision-v2.png)
 
-Concept v2 is the active candidate. Concept v1 remains in the repository as evidence of an explicitly rejected palette, not as a source of approved tokens.
+Concept v2 is the approved visual foundation. It is not a pixel specification: layouts and components must change whenever real-device usability, accessibility, content density, or state coverage requires it. Concept v1 remains in the repository as evidence of an explicitly rejected palette, not as a source of approved tokens.
 
 ## What the references establish
 
@@ -122,6 +122,21 @@ Avoid:
 - Turning every screen into an analytics dashboard.
 - Letting visual polish hide loading, empty, error, offline, and recovery states.
 
+## Usability hierarchy
+
+The interface is a tracking tool before it is a presentation surface. When visual drama and task completion conflict, task completion wins.
+
+1. Goal names, current value, target, state, and next action must be scannable without opening each card.
+2. The Goals destination always provides a true list view; bento modules are reserved for summaries and featured content.
+3. Quick logging must be reachable from Today, each list row, and Goal detail.
+4. The common log operation must take no more than two deliberate actions after the relevant goal is visible.
+5. Charts supplement exact values and history; they never replace them.
+6. Destructive and uncommon controls remain secondary but discoverable through labeled menus.
+7. Users can undo a new log immediately and edit or delete historical entries through explicit actions.
+8. Navigation, logging, filtering, sorting, and editing remain usable with large text and TalkBack.
+
+Detailed flows and acceptance criteria are maintained in `docs/UX_REQUIREMENTS.md`.
+
 ## Research grounding
 
 - [Android color guidance](https://developer.android.com/design/ui/mobile/guides/styles/color): tonal surfaces, semantic color, dynamic color, and accessibility.
@@ -132,7 +147,7 @@ Avoid:
 
 ## Open questions
 
-1. Is concept v2's cool blue-gray atmosphere approved, or should the canvas move toward a more neutral stone gray?
+1. Should the cool blue-gray atmosphere remain fixed, or be tuned after the first real-device prototype?
 2. Should the graphite next-move card be a signature element across all primary screens?
 3. Should progress visualization favor rings, linear tracks, or a controlled mixture based on metric type?
 4. Does the final brand want quiet precision, playful energy, or a balance weighted toward quiet precision?

@@ -1,6 +1,6 @@
 # Product proposal: Morrow (working title)
 
-Status: **Exploratory; no product decision is approved**
+Status: **Primary tracking job and visual foundation approved; remaining product decisions open**
 Prepared: 19 November 2026 (Asia/Kolkata)
 Active concept candidate: [`docs/concepts/morrow-product-vision-v2.png`](concepts/morrow-product-vision-v2.png)
 Superseded exploration: [`docs/concepts/morrow-product-vision-v1.png`](concepts/morrow-product-vision-v1.png)
@@ -141,11 +141,11 @@ This audience must be narrowed before implementation. Professionals/founders, st
 
 ## Information architecture
 
-Use four labeled destinations:
+Use four plain-language labeled destinations:
 
 1. **Today** — one meaningful move, due rituals, and a fast progress log
-2. **Paths** — active goals, milestones, plan details, archive, and templates
-3. **Review** — weekly reset, pace, patterns, and history
+2. **Goals** — a first-class active/completed/paused list, milestones, details, archive, and templates
+3. **Progress** — history, pace, patterns, charts, and the weekly review
 4. **You** — preferences, data/export, privacy, widgets, and plan
 
 AI assistance, if approved, should be contextual within goal creation, a stuck-state, or weekly review. It should not occupy a permanent top-level tab.
@@ -183,7 +183,7 @@ Target: a useful first plan in under three minutes, skippable at every optional 
 ### Daily loop
 
 1. Today opens on the one move that matters.
-2. `Log progress` accepts a quick amount/completion first.
+2. `Log progress` is also present on each Goals list row and Goal detail; the common case completes in no more than two deliberate actions once a goal is visible.
 3. Note and photo are optional secondary actions.
 4. Completion produces restrained motion, a short haptic, and the next move—not confetti every time.
 5. Rituals are compact and can be marked done, skipped, or moved without breaking identity.
@@ -203,6 +203,7 @@ Target: a useful first plan in under three minutes, skippable at every optional 
 - Offline-first goal, milestone, move, ritual, and check-in creation
 - Numeric, duration, count, currency, percentage, and binary goal types
 - Fast daily logging and editable history
+- A compact, scannable Goals list with active, paused, and completed filters plus explicit sort controls
 - Flexible weekly rhythms, reminders, planned rest, skip, pause, and resume
 - Weekly review and basic pace/progress charts
 - Archive/restore and safe deletion

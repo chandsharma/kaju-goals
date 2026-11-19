@@ -15,6 +15,7 @@ Start here:
 - [Decision log](docs/DECISIONS.md)
 - [Product proposal](docs/PRODUCT_PROPOSAL.md)
 - [Design direction](docs/DESIGN_DIRECTION.md)
+- [Tracking usability requirements](docs/UX_REQUIREMENTS.md)
 - [Quality standard](docs/QUALITY_STANDARD.md)
 - [Open-source policy](docs/OPEN_SOURCE.md)
 
