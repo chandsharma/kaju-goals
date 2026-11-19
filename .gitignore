@@ -1,19 +1,45 @@
-.DS_Store
-.idea/
+# Gradle and Android build output
 .gradle/
+build/
 **/build/
 local.properties
+.externalNativeBuild/
+.cxx/
 captures/
-artifacts/
-dist/
-private/
-local-infrastructure/
+
+# IDE and editor state
+.idea/
+*.iml
+.vscode/
+.fleet/
+*.swp
+*.swo
+.DS_Store
+
+# Signing and secrets
 *.jks
 *.keystore
-*.p12
 *.password
+*.p12
+*.pfx
 keystore.properties
+signing.properties
 secrets.properties
 google-services.json
 service-account*.json
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+local-infrastructure/
 
+# Generated reports and local artifacts
+*.apk
+*.aab
+*.apks
+*.log
+lint-results*
+test-results/
+reports/
+tmp/

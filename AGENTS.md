@@ -14,6 +14,8 @@ Read these files before acting:
 
 Keep `PROJECT_CONTEXT.md` and `DECISIONS.md` current as the product becomes defined. Record facts and decisions, not chat transcripts.
 
+For every substantial task, preserve durable learnings, research conclusions, and changed assumptions in an appropriate Markdown file under `docs/`. Update `PROJECT_CONTEXT.md` with current facts and `DECISIONS.md` with every approved or rejected durable choice. Do not rely on chat history as the only record of product context.
+
 ## Product and research discipline
 
 - Treat every app as a real production product, not a sample, tutorial, or disposable prototype.
