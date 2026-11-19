@@ -46,11 +46,12 @@ The implementation uses Kotlin, Jetpack Compose, Material 3 foundations, Navigat
 
 ## Verification evidence
 
-Verified on 19 November 2026 using the `NoDoomPolicyPixel9Pro` Android 16/API 36 AVD at 1280 × 2856, 480 dpi. The physical Pixel was not modified during development.
+Verified on 19 November 2026 using the `NoDoomPolicyPixel9Pro` Android 16/API 36 AVD at 1280 × 2856, 480 dpi. The same verified debug APK was subsequently installed as a fresh package on the connected physical Pixel 9 Pro using data-preserving `adb install -r` and launched successfully.
 
 - `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:bundleRelease` — passed
 - `./gradlew :app:connectedDebugAndroidTest` — 3/3 tests passed on the AVD
 - Debug installation used `adb install -r`; no package data was deliberately cleared or app uninstalled
+- Physical Pixel installation verified package `com.chandsharma.kajugoals.debug`, version code 1 / `0.1.0-dev-debug`, with the app activity in focus after launch
 - Interactively verified empty Today, create/edit form and IME behavior, populated Today, Goals list, count and binary logging, undo feedback, exact detail/history, Progress history, deletion confirmation, top-level back stacks, and rotation
 - Verified navigation regression: a completed create flow no longer reappears as a stale form when returning to its origin tab
 - `zipalign -c -P 16 -v 4` passed for the unsigned release APK
