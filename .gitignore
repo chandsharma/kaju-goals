@@ -12,6 +12,7 @@ captures/
 *.iml
 .vscode/
 .fleet/
+.agents/
 *.swp
 *.swo
 .DS_Store
@@ -43,3 +44,8 @@ lint-results*
 test-results/
 reports/
 tmp/
+
+# Superseded local visual captures retained only for this development session
+docs/screenshots/development/form-filled.png
+docs/screenshots/development/detail-logged.png
+docs/screenshots/development/adaptive-landscape.png

@@ -4,65 +4,76 @@ Last updated: 19 November 2026 (Asia/Kolkata)
 
 ## Current state
 
-The primary personal-tracking job and concept v2 visual foundation are approved; the final name, package identity, business model, sync boundary, and implementation scope remain open. No Android code has been created. A research-backed proposal is available in `docs/PRODUCT_PROPOSAL.md`, and production usability requirements are recorded in `docs/UX_REQUIREMENTS.md`. This repository remains independent from every sibling app.
+Kaju Goals now has a working, local-first Android vertical slice. It is intentionally an early development build, not a Play release and not yet production-complete. The core personal-tracking loop works on the Pixel 9 Pro API 36 AVD: create a goal, view it in a real list, log progress in two actions, undo a new log, inspect exact history, edit a goal, filter/sort goals, and complete a binary goal.
+
+The public repository is `https://github.com/chandsharma/kaju-goals`. Play Console publication is explicitly deferred until the user confirms.
 
 ## Product identity
 
 | Item | Decision |
 | --- | --- |
-| Product name | TBD |
-| One-sentence promise | Direction approved: make personal goals and progress effortless to track; final public copy TBD |
-| Primary users | The owner as the first real user; broader launch audience TBD |
-| Primary jobs | List and manage goals, log progress quickly, inspect history, and understand current progress |
-| Business model | TBD |
-| Application ID | TBD; must be globally unique |
-| Minimum Android version | TBD from user needs and current device data |
-| Target Android version | Use the current Play-required target verified at implementation time |
+| Product name | Kaju Goals |
+| Application ID | `com.chandsharma.kajugoals` |
+| Debug application ID | `com.chandsharma.kajugoals.debug` |
+| Version | `1` / `0.1.0-dev` |
+| Primary user | The owner as the first real user; broader launch audience remains open |
+| Primary promise | Make personal goals and progress effortless to track |
+| Primary destinations | Today, Goals, Progress, You |
+| Minimum / target Android | API 26 / API 36 |
+| Business model | Undecided; no purchase or premium implementation exists |
 
-## Product scope
+## Implemented scope
 
-- Core workflow: open Today or Goals, find a goal, log progress in no more than two deliberate actions, and see the result immediately
-- Required screens: Today, Goals list, Goal detail/history, quick progress log, create/edit goal, Progress, and You/settings
-- Offline behavior: TBD
-- Account/cloud behavior: TBD
-- Import/export/recovery: TBD
-- Accessibility requirements: production-grade by default
-- Explicit non-goals: TBD
+- Today dashboard with one priority goal, active-goal and log counts, empty state, and additional active goals
+- Canonical Goals list with Active, Paused, Completed, and All filters; Recent, Name, and Progress sorting; quick log; edit; pause/resume; complete; and archive actions
+- Goal creation and editing for count, duration, percentage, and binary measurements
+- Goal detail with exact current/target values, accessible progress ring, recent chronological history, editing, and quick logging
+- Metric-aware progress sheet with shortcuts, validation, optional notes, and immediate Undo
+- Exact Progress history and explicit confirmation before destructive deletion
+- Navigation 3 multiple top-level back stacks, with focused create/detail flows hiding top-level navigation
+- Edge-to-edge layouts, keyboard-safe form scrolling, portrait/landscape state restoration, light/dark theme foundations, and adaptive navigation components
+- Local Room database with exported version 1 schema; Hilt dependency injection; ViewModel/Flow state; no account, backend, analytics, ads, trackers, network permission, or sensitive permission
 
 ## Data and privacy
 
-- Data model: TBD
-- Storage and encryption: TBD
-- Permissions: none until justified by a user-activated feature
-- Analytics/telemetry/ads: none unless explicitly approved and documented
-- Data deletion/export policy: TBD before release
+Goals and progress entries are stored locally in Room. Goal values use `Long`; progress is derived deterministically from exact entries. Deleting an entry recalculates the goal total. Android backup/data-extraction rules include the app database, but user-facing export/restore is not implemented yet.
 
-## Design direction
-
-The user approved concept v2 as the visual foundation. It uses cool luminous neutrals, large rounded modular surfaces, crisp black sans-serif typography, circular controls and progress instruments, restrained pastel data colors, and subtle dimensional lighting. Approval is conditional on real usability: first-class list views, obvious actions, quick logging, accessible contrast, and complete state coverage. The concept is a direction, not a pixel specification.
+The merged app currently declares no network, notification, location, camera, contacts, storage, or other sensitive permission. The only generated permission is the package-scoped `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` used by AndroidX internals.
 
 ## Architecture
 
-TBD after product requirements are known. Use the smallest maintainable production architecture that satisfies durability, security, testing, and performance requirements.
+The implementation uses Kotlin, Jetpack Compose, Material 3 foundations, Navigation 3, unidirectional state flow, coroutines/Flow, Hilt, and Room. Details and dependency rationale are in `docs/ARCHITECTURE.md`; test coverage and commands are in `docs/TESTING.md`.
 
-## Current verification
+## Verification evidence
 
-- Repository is initialized.
-- Shared Android development environment and publishing route are documented.
-- No application code, package identity, store listing, backend, analytics service, or runtime integration has been created.
-- The public contribution-ready repository is live at `https://github.com/chandsharma/kaju-goals`; `main` is the default branch, issues and discussions are enabled, and private vulnerability reporting is available.
-- On 19 November 2026, the installed Goals app (`com.mindfulsuite.goals`, version 10.3.13) was audited on the connected physical Pixel 9 Pro for information architecture, visible features, visual system, and paid boundaries. No app data was cleared, no purchase was started, and no user record was intentionally changed.
-- Current category products, behavior-change research, Android design guidance, and the 2026 Play target API requirement were reviewed; sources are linked from `docs/PRODUCT_PROPOSAL.md`.
-- Concept board generated and visually inspected at 1672 × 941 pixels. It contains fictional sample data and is not a final UI specification.
-- Five user-supplied visual references were inspected on 19 November 2026. Their shared design grammar and accessibility constraints are recorded in `docs/DESIGN_DIRECTION.md`; the reference images themselves are not redistributed as project assets.
-- Concept v2 was generated from those references and visually inspected at 1672 × 941 pixels. It uses fictional data and is approved as a visual foundation, not as a final UI specification.
-- The project is designated open source and contribution-ready under Apache-2.0. Repository and contribution details are maintained in `docs/OPEN_SOURCE.md`.
-- The official `android/skills` repository was reviewed as a future implementation aid. Relevant Compose, navigation, performance, security, testing, and Play skills should be selected only when their work begins; no blanket skill installation is needed during product exploration.
+Verified on 19 November 2026 using the `NoDoomPolicyPixel9Pro` Android 16/API 36 AVD at 1280 × 2856, 480 dpi. The physical Pixel was not modified during development.
 
-## Open decisions
+- `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:bundleRelease` — passed
+- `./gradlew :app:connectedDebugAndroidTest` — 3/3 tests passed on the AVD
+- Debug installation used `adb install -r`; no package data was deliberately cleared or app uninstalled
+- Interactively verified empty Today, create/edit form and IME behavior, populated Today, Goals list, count and binary logging, undo feedback, exact detail/history, Progress history, deletion confirmation, top-level back stacks, and rotation
+- Verified navigation regression: a completed create flow no longer reappears as a stale form when returning to its origin tab
+- `zipalign -c -P 16 -v 4` passed for the unsigned release APK
+- Debug APK signature verifies with one signer and APK Signature Scheme v2
+- Release APK is intentionally unsigned; no release signing identity was created or used
+- Debug APK SHA-256: `782a3ea4ca029b839df73e8721b56f3c658c456247ff1d5b4383484cb784b6b5`
+- Unsigned release APK SHA-256: `fd483f9bce910e5fedb463758f5c4c47e0692c4a7fc6f056f2b7139bdf625016`
+- Unpublished release AAB SHA-256: `84f79c2ffcb6d7e2a4765c4b2c4b85ecf8596969bfce2bafc0a0608df255950a`
 
-1. Broader launch audience beyond the owner as first user.
-2. Name and unique application ID.
-3. Core feature boundary and monetization.
-4. Local/cloud data model and privacy posture.
+Rendered development evidence using fictional data is under `docs/screenshots/development/`.
 
+## Known limitations before production readiness
+
+1. User-facing export/restore, backup verification, and migration tests beyond the initial version 1 schema are not implemented.
+2. Older progress records can be deleted with confirmation but not edited in place yet.
+3. Dates, milestones, reminders, recurrence/rituals, widgets, attachments, and richer progress analysis are not in the first slice.
+4. Large datasets, 1.5× font scale, TalkBack, dark theme, tablet/foldable screenshots, performance, and long-duration reliability still need dedicated validation.
+5. Automated screenshot regression is deferred because the stable AGP 9.0 toolchain only supports the deprecated standalone preview-screenshot plugin; adopting AGP 9.5+ and API 37 is a separate toolchain decision.
+6. Release signing, Play disclosures, store assets, closed testing, and publishing have not begun.
+
+## Open product decisions
+
+1. Broader launch audience and public positioning.
+2. Free/open-source versus optional paid sustainability model and what, if anything, may be premium.
+3. Exact export format and whether end-to-end encrypted sync is ever needed.
+4. Priorities for the next slice: edit historical entries, deadlines/milestones, reminders, recurring habits, or richer review/insights.
