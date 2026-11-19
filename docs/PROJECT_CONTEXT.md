@@ -49,13 +49,15 @@ TBD after product requirements are known. Use the smallest maintainable producti
 
 - Repository is initialized.
 - Shared Android development environment and publishing route are documented.
-- No application code, package identity, store listing, or external service has been created.
+- No application code, package identity, store listing, backend, analytics service, or runtime integration has been created.
+- The public contribution-ready repository is live at `https://github.com/chandsharma/kaju-goals`; `main` is the default branch, issues and discussions are enabled, and private vulnerability reporting is available.
 - On 19 November 2026, the installed Goals app (`com.mindfulsuite.goals`, version 10.3.13) was audited on the connected physical Pixel 9 Pro for information architecture, visible features, visual system, and paid boundaries. No app data was cleared, no purchase was started, and no user record was intentionally changed.
 - Current category products, behavior-change research, Android design guidance, and the 2026 Play target API requirement were reviewed; sources are linked from `docs/PRODUCT_PROPOSAL.md`.
 - Concept board generated and visually inspected at 1672 × 941 pixels. It contains fictional sample data and is not a final UI specification.
 - Five user-supplied visual references were inspected on 19 November 2026. Their shared design grammar and accessibility constraints are recorded in `docs/DESIGN_DIRECTION.md`; the reference images themselves are not redistributed as project assets.
 - Concept v2 was generated from those references and visually inspected at 1672 × 941 pixels. It uses fictional data and remains a candidate rather than an approved UI specification.
 - The project is designated open source and contribution-ready under Apache-2.0. Repository and contribution details are maintained in `docs/OPEN_SOURCE.md`.
+- The official `android/skills` repository was reviewed as a future implementation aid. Relevant Compose, navigation, performance, security, testing, and Play skills should be selected only when their work begins; no blanket skill installation is needed during product exploration.
 
 ## Open decisions
 
