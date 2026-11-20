@@ -14,18 +14,29 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import com.chandsharma.kajugoals.data.sync.SyncPhase
+import com.chandsharma.kajugoals.data.sync.SyncUiState
+import com.chandsharma.kajugoals.ui.format.formatTimestamp
 import com.chandsharma.kajugoals.ui.theme.KajuTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun YouScreen() {
+fun YouScreen(
+    syncState: SyncUiState,
+    onConnectOrSync: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -54,9 +65,83 @@ fun YouScreen() {
                 ) {
                     Text("Private by default", style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        "Your goals and progress are stored on this device. This build has no account, analytics, ads, or network permission.",
+                        "Your goals stay on this device unless you choose Google Drive sync. There are no ads, analytics, trackers, or Kaju cloud account.",
                         style = MaterialTheme.typography.bodyLarge,
                     )
+                }
+            }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(KajuTheme.extendedColors.glacier, RoundedCornerShape(28.dp))
+                        .padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Google Drive sync", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        when (syncState.phase) {
+                            SyncPhase.DISCONNECTED -> "Optional · off"
+                            SyncPhase.CONNECTING -> "Connecting…"
+                            SyncPhase.SYNCING -> "Syncing changes…"
+                            SyncPhase.NEEDS_AUTHORIZATION -> "Reconnect needed"
+                            SyncPhase.ERROR -> "Needs attention"
+                            SyncPhase.IDLE -> syncState.lastSyncedAt?.let {
+                                "Last synced ${formatTimestamp(it)}"
+                            } ?: "Connected"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        "Kaju Goals stores one hidden app-data file in the Google account you choose. It cannot see other Drive files, and the data is never sent to us.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    syncState.message?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Button(
+                        onClick = onConnectOrSync,
+                        enabled = syncState.phase != SyncPhase.CONNECTING &&
+                            syncState.phase != SyncPhase.SYNCING,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (syncState.phase == SyncPhase.CONNECTING || syncState.phase == SyncPhase.SYNCING) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(end = 10.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        }
+                        Text(
+                            when (syncState.phase) {
+                                SyncPhase.DISCONNECTED -> "Connect Google Drive"
+                                SyncPhase.NEEDS_AUTHORIZATION,
+                                SyncPhase.ERROR,
+                                -> "Reconnect and sync"
+                                else -> "Sync now"
+                            },
+                        )
+                    }
+                    if (syncState.isConnected &&
+                        syncState.phase != SyncPhase.CONNECTING &&
+                        syncState.phase != SyncPhase.SYNCING
+                    ) {
+                        OutlinedButton(
+                            onClick = onDisconnect,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Turn off sync")
+                        }
+                        Text(
+                            "Turning sync off keeps both the local copy and the hidden Drive copy.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             item {
@@ -74,7 +159,7 @@ fun YouScreen() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        "Export, restore, reminders, widgets, and app lock are planned after the core tracking loop is validated.",
+                        "Open-source development build. Cloud restore is merge-first: a fresh empty install downloads existing Drive data before it can upload anything.",
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }

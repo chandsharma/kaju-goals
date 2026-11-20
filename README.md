@@ -5,11 +5,12 @@ Kaju Goals is an open-source, local-first Android app for making personal goals 
 ## What works
 
 - Today dashboard and first-class Goals list
-- Count, duration, percentage, and done/not-done goals
-- Fast progress logging with shortcuts, notes, and immediate Undo
+- One-tap quick starts plus Count, Time, Percentage, Money, and Done goals, including INR
+- Large metric-aware progress stepper with shortcuts, optional notes, and immediate Undo
 - Exact chronological history and confirmed deletion
 - Goal edit, pause/resume, complete, archive, filter, and sort
-- Offline Room persistence with no account, analytics, ads, or network permission
+- Offline Room persistence with no required account, analytics, ads, or trackers
+- Optional user-owned Google Drive hidden-app-data sync with merge-first restore and no Kaju backend
 - Edge-to-edge Compose UI, keyboard-safe forms, Navigation 3 back stacks, and adaptive navigation foundations
 
 ## Build and test
@@ -38,6 +39,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - [Project context](docs/PROJECT_CONTEXT.md)
 - [Decision log](docs/DECISIONS.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Google Drive sync architecture](docs/SYNC_ARCHITECTURE.md)
 - [Testing strategy](docs/TESTING.md)
 - [Product proposal](docs/PRODUCT_PROPOSAL.md)
 - [Design direction](docs/DESIGN_DIRECTION.md)

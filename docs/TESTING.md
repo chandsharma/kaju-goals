@@ -1,12 +1,12 @@
 # Testing strategy
 
-Last updated: 19 November 2026
+Last updated: 20 November 2026
 
 ## Current layers
 
-- Local JUnit 4 tests cover domain progress calculations and ViewModel filtering with a fake repository.
-- Instrumented Room tests use an in-memory database and the real Android SQLite engine.
-- Instrumented Compose behavior tests cover the Goals empty/create action and explicit confirmation before deleting progress.
+- Local JUnit 4 tests cover domain progress calculations, ViewModel filtering, and deterministic Drive snapshot merging with a fake repository or pure merge inputs.
+- Instrumented Room tests use the real Android SQLite engine for aggregation and the explicit v1→v2 migration.
+- Instrumented Compose behavior tests cover the Goals empty/create action, one-tap template creation, automatic Percentage targets, and explicit confirmation before deleting progress.
 - Manual AVD journeys cover the complete create/log/undo/history/navigation path and rendered edge-to-edge/IME behavior.
 
 ## Commands
@@ -31,6 +31,8 @@ export ANDROID_SERIAL="$(adb devices | awk '/^emulator-/{print $1; exit}')"
 
 The validated AVD is `NoDoomPolicyPixel9Pro`, Android 16/API 36, 1280 × 2856 at 480 dpi. Fictional-data screenshots live in `docs/screenshots/development/`.
 
+On 20 November 2026, all 7 connected tests passed on that AVD after the corrected create/log/list/sync implementation. The final debug APK was installed with `adb install -r`, launched into `MainActivity`, and produced no runtime fatal exception. The physical Pixel was not attached to ADB during this final pass; its existing app data must be preserved when the same APK is installed after reconnecting.
+
 The verified manual flow is:
 
 1. Open empty Today and create a count goal.
@@ -41,6 +43,9 @@ The verified manual flow is:
 6. Create and complete a binary goal.
 7. Rotate with state intact.
 8. Attempt history deletion and verify the explicit confirmation dialog.
+9. Create a complete `Read 12 books` goal from the template without typing.
+10. Log `+1 book` using the large stepper and verify singular/plural formatting, exact list progress, and Undo.
+11. Inspect the disconnected Drive state and verify that local use does not require an account.
 
 ## Deferred coverage
 
@@ -48,6 +53,6 @@ The verified manual flow is:
 - Add UI tests for back handling, multiple-back-stack restoration, edit, pause/resume, complete/archive, and validation failures.
 - Add 400/610/900 dp width and 400/500/1000 dp height coverage, dark theme, and 1.5× font scale.
 - Add TalkBack traversal, large dataset, startup/scroll performance, and process-death testing.
-- Add migration, export/restore, backup, and recovery tests when those features exist.
+- Add end-to-end Drive API tests with a dedicated disposable Google account before public release; pure merge and migration safety are covered now.
 
 Do not update visual references automatically. Review diffs and rendered states before accepting any future screenshot baseline.

@@ -6,7 +6,11 @@ import com.chandsharma.kajugoals.data.local.GoalDao
 import com.chandsharma.kajugoals.data.local.KajuGoalsDatabase
 import com.chandsharma.kajugoals.data.repository.IdGenerator
 import com.chandsharma.kajugoals.data.repository.RoomGoalRepository
+import com.chandsharma.kajugoals.data.repository.SyncScheduler
 import com.chandsharma.kajugoals.data.repository.TimeProvider
+import com.chandsharma.kajugoals.data.sync.WorkManagerSyncScheduler
+import com.chandsharma.kajugoals.data.sync.DefaultDriveSyncCoordinator
+import com.chandsharma.kajugoals.data.sync.DriveSyncCoordinator
 import com.chandsharma.kajugoals.domain.repository.GoalRepository
 import dagger.Module
 import dagger.Provides
@@ -26,7 +30,8 @@ object AppModule {
             context,
             KajuGoalsDatabase::class.java,
             "kaju-goals.db",
-        ).build()
+        ).addMigrations(KajuGoalsDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideGoalDao(database: KajuGoalsDatabase): GoalDao = database.goalDao()
@@ -37,7 +42,18 @@ object AppModule {
         goalDao: GoalDao,
         timeProvider: TimeProvider,
         idGenerator: IdGenerator,
-    ): GoalRepository = RoomGoalRepository(goalDao, timeProvider, idGenerator)
+        syncScheduler: SyncScheduler,
+    ): GoalRepository = RoomGoalRepository(goalDao, timeProvider, idGenerator, syncScheduler)
+
+    @Provides
+    @Singleton
+    fun provideSyncScheduler(scheduler: WorkManagerSyncScheduler): SyncScheduler = scheduler
+
+    @Provides
+    @Singleton
+    fun provideDriveSyncCoordinator(
+        coordinator: DefaultDriveSyncCoordinator,
+    ): DriveSyncCoordinator = coordinator
 
     @Provides
     fun provideTimeProvider(): TimeProvider = TimeProvider(System::currentTimeMillis)

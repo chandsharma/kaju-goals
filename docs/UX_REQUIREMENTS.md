@@ -1,7 +1,7 @@
 # Tracking usability requirements
 
-Last updated: 19 November 2026 (Asia/Kolkata)
-Status: primary usability contract approved; detailed interaction design pending
+Last updated: 20 November 2026 (Asia/Kolkata)
+Status: primary usability contract approved; corrected create/log/list interaction implemented and under device validation
 
 ## Primary use
 
@@ -83,7 +83,12 @@ Charts must never be the only way to retrieve an exact value or understand histo
 
 ## Creation and editing
 
-- Provide a minimal create path: name, measurement type, and optional target are sufficient to save a valid draft goal.
+- Lead with one-tap quick starts that produce a complete valid goal without typing.
+- Provide a minimal custom path: name, an unmistakable measurement card, and a finish line where that metric needs one.
+- Default to Count so the simplest custom goal does not require an extra selection.
+- Show measurement symbols before explanatory text: `123` for Count, a clock for Time, `%` for Percentage, a currency sign for Money, and a check for Done.
+- Percentage always finishes at 100%; Done always finishes in one action; do not ask users to enter these targets.
+- Use metric-aware common units and INR-first currency choices; keep a custom Count unit available without leading with it.
 - Dates, milestones, reminders, rituals, notes, and appearance are progressive options.
 - Explain measurement choices using examples instead of domain terminology.
 - Preserve entered data when validation fails or the app is backgrounded.
@@ -112,5 +117,13 @@ Before treating the interaction design as complete, test these tasks on the docu
 6. Inspect exact history without interpreting a chart.
 7. Complete and archive a goal, then find it again.
 8. Repeat the core tasks with large text and TalkBack.
+
+## Current corrected interaction
+
+- Quick starts: Read 12 books, Save ₹1,00,000, Walk 10,000 steps, and Finish a project.
+- Custom measurement choices: Count, Time, Percentage, Money, and Done.
+- Quick log: large −/+ stepper, three metric-aware shortcuts, collapsed optional note, and a confirmation label that states the exact delta.
+- Goal list: compact row, exact current/target text, visible progress bar, 48dp `+` action, and overflow actions.
+- Navigation content transitions: 160 ms in / 90 ms out instead of the Navigation 3 700 ms default.
 
 Usability evidence should include task completion, error points, number of actions, screenshots or recordings, and accessibility observations—not aesthetic judgment alone.

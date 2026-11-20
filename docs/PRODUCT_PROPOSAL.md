@@ -1,6 +1,6 @@
-# Product proposal: Morrow (working title)
+# Product proposal: Kaju Goals (originally explored as “Morrow”)
 
-Status: **Primary tracking job and visual foundation approved; remaining product decisions open**
+Status: **Historical proposal; identity, tracking job, implementation, and optional owner-controlled sync are now defined in `PROJECT_CONTEXT.md` and `DECISIONS.md`**
 Prepared: 19 November 2026 (Asia/Kolkata)
 Active concept candidate: [`docs/concepts/morrow-product-vision-v2.png`](concepts/morrow-product-vision-v2.png)
 Superseded exploration: [`docs/concepts/morrow-product-vision-v1.png`](concepts/morrow-product-vision-v1.png)
@@ -15,7 +15,7 @@ The product promise is:
 
 The product should not become a task manager with inspirational decoration, a punishing streak tracker, or a chatbot wrapped around a database. Its core loop should connect a measurable outcome to milestones, a single next move, supporting rituals, frequent progress evidence, and a humane weekly review.
 
-`Morrow` is only a working name used to make the concept concrete. It has not been checked for trademark, Play listing, domain, or package-name availability.
+`Morrow` was the exploration name used to make the concept concrete. The implemented product identity is Kaju Goals with application ID `com.chandsharma.kajugoals`.
 
 ## Evidence collected
 
@@ -42,6 +42,16 @@ Observed experience:
 - The library contains short learning modules inspired by well-known behavior and productivity methods.
 - Journey history presents kept days as a decorative star-field calendar.
 - The app uses mostly near-black surfaces, large white type, teal controls, orange habit accents, purple journey screens, gradient goal cards, full-bleed photography, and occasional serif/handwritten display type.
+
+A second focused interaction audit was performed after the first Kaju build proved too form-like. Using only fictional data, the audit created `Read 12 books SAMPLE` from scratch, selected Learning, chose Items with a target of 12, logged +1, and verified 1/12 progress. The installed app's useful interaction lessons were:
+
+- offer a program/template route before a from-scratch route;
+- present measurement choices as a readable list rather than an abstract data model;
+- make the quick-log surface a clear decrement/value/increment control with one confirmation;
+- keep the unit attached to every target and logged value;
+- support common measures including Steps, Items, %, $, €, £, Hours, Times, Weeks, Days, Lbs, Kg, Miles, and Km.
+
+Kaju applies those lessons through an original UI and adds INR. It does not copy the installed app's assets, layouts, text, code, or real records.
 
 Observed paid boundaries:
 
@@ -291,13 +301,18 @@ Minimum Android version remains TBD until target-user device needs are chosen. T
 - Clear separate consent before any private goal text is sent to an AI provider
 - AI-off mode must remain a complete product
 
-## Decisions needed before implementation
+## Resolved and remaining product decisions
 
-1. Is this a new independent product, or a deliberate successor to the installed Goals app with migration and identity implications?
-2. Which first audience is primary: professionals/founders, students, or broad personal growth?
-3. Should version 1 be local-only, or must multi-device sync be present at launch?
-4. Which business model is preferred: paid/lifetime, fair freemium, or subscription-first?
-5. Is AI absent at launch, optional during planning/review, or a central paid feature?
-6. Should the product feel mostly calm/editorial as proposed, or more energetic/playful?
+Resolved:
 
-No Android code, package identity, store listing, account system, backend, or monetization integration should be created until the first five product decisions are made.
+- Kaju Goals is a new independent open-source product, not a successor package or data migration for the installed Goals app.
+- The owner is the first real user and personal goal/progress tracking is the primary job.
+- Core use is offline/local-first; optional user-owned Google Drive hidden-app-data sync is included without a Kaju backend.
+- The visual direction is the approved cool-neutral dimensional-bento foundation, constrained by production usability.
+- AI, advertising, analytics, and telemetry are absent.
+
+Still open:
+
+1. The broader launch audience and public positioning.
+2. Free/open-source sustainability versus any optional paid layer.
+3. Whether AI should ever be offered under a separately consented privacy boundary.

@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.Upsert
 import com.chandsharma.kajugoals.domain.model.GoalStatus
 import kotlinx.coroutines.flow.Flow
 
@@ -17,7 +19,9 @@ interface GoalDao {
                MAX(progress_entries.occurredAt) AS last_progress_at
         FROM goals
         LEFT JOIN progress_entries ON progress_entries.goalId = goals.id
+             AND progress_entries.deletedAt IS NULL
         WHERE goals.status != 'ARCHIVED'
+          AND goals.deletedAt IS NULL
         GROUP BY goals.id
         ORDER BY goals.sortOrder ASC, goals.createdAt DESC
         """,
@@ -32,6 +36,8 @@ interface GoalDao {
                goals.unitLabel AS unit_label
         FROM progress_entries
         INNER JOIN goals ON goals.id = progress_entries.goalId
+        WHERE progress_entries.deletedAt IS NULL
+          AND goals.deletedAt IS NULL
         ORDER BY progress_entries.occurredAt DESC, progress_entries.createdAt DESC
         LIMIT :limit
         """,
@@ -47,12 +53,49 @@ interface GoalDao {
     @Update
     suspend fun updateGoal(goal: GoalEntity)
 
-    @Query("UPDATE goals SET status = :status, updatedAt = :updatedAt WHERE id = :goalId")
-    suspend fun updateGoalStatus(goalId: String, status: GoalStatus, updatedAt: Long)
+    @Query(
+        "UPDATE goals SET status = :status, updatedAt = :updatedAt, mutationId = :mutationId " +
+            "WHERE id = :goalId",
+    )
+    suspend fun updateGoalStatus(
+        goalId: String,
+        status: GoalStatus,
+        updatedAt: Long,
+        mutationId: String,
+    )
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertProgress(entry: ProgressEntryEntity)
 
-    @Query("DELETE FROM progress_entries WHERE id = :entryId")
-    suspend fun deleteProgress(entryId: String)
+    @Query(
+        "UPDATE progress_entries SET deletedAt = :deletedAt, updatedAt = :updatedAt, " +
+            "mutationId = :mutationId WHERE id = :entryId",
+    )
+    suspend fun tombstoneProgress(
+        entryId: String,
+        deletedAt: Long,
+        updatedAt: Long,
+        mutationId: String,
+    )
+
+    @Query("SELECT * FROM goals")
+    suspend fun getAllGoals(): List<GoalEntity>
+
+    @Query("SELECT * FROM progress_entries")
+    suspend fun getAllProgress(): List<ProgressEntryEntity>
+
+    @Upsert
+    suspend fun upsertGoals(goals: List<GoalEntity>)
+
+    @Upsert
+    suspend fun upsertProgress(entries: List<ProgressEntryEntity>)
+
+    @Transaction
+    suspend fun applyMergedSnapshot(
+        goals: List<GoalEntity>,
+        entries: List<ProgressEntryEntity>,
+    ) {
+        upsertGoals(goals)
+        upsertProgress(entries)
+    }
 }

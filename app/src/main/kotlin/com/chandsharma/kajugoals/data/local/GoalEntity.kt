@@ -16,4 +16,6 @@ data class GoalEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val sortOrder: Long,
+    val mutationId: String = id,
+    val deletedAt: Long? = null,
 )

@@ -1,5 +1,13 @@
 package com.chandsharma.kajugoals.ui
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -87,6 +95,15 @@ fun KajuGoalsApp(
     var quickLogGoalId by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val navigationSuiteState = rememberNavigationSuiteScaffoldState()
+    val driveAuthorizationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.handleDriveAuthorizationResult(result.data)
+        } else {
+            viewModel.handleDriveAuthorizationResult(null)
+        }
+    }
     val selectedDestination = TopLevelDestination.valueOf(selectedDestinationName)
     val currentStack = when (selectedDestination) {
         TopLevelDestination.TODAY -> todayStack
@@ -153,6 +170,11 @@ fun KajuGoalsApp(
                         currentStack.removeLastOrNull()
                     }
                 }
+                is MainEvent.RequestDriveAuthorization -> {
+                    driveAuthorizationLauncher.launch(
+                        IntentSenderRequest.Builder(event.pendingIntent.intentSender).build(),
+                    )
+                }
                 is MainEvent.ProgressLogged -> {
                     quickLogGoalId = null
                     val result = snackbarHostState.showSnackbar(
@@ -189,6 +211,18 @@ fun KajuGoalsApp(
                 backStack = currentStack,
                 onBack = ::goBack,
                 modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    fadeIn(tween(FAST_NAV_ENTER_MILLIS)) togetherWith
+                        fadeOut(tween(FAST_NAV_EXIT_MILLIS))
+                },
+                popTransitionSpec = {
+                    fadeIn(tween(FAST_NAV_ENTER_MILLIS)) togetherWith
+                        fadeOut(tween(FAST_NAV_EXIT_MILLIS))
+                },
+                predictivePopTransitionSpec = { _ ->
+                    fadeIn(tween(FAST_NAV_ENTER_MILLIS)) togetherWith
+                        fadeOut(tween(FAST_NAV_EXIT_MILLIS))
+                },
                 entryProvider = entryProvider {
                     entry<TodayRoute> {
                         TodayScreen(
@@ -220,7 +254,13 @@ fun KajuGoalsApp(
                             onDeleteProgress = viewModel::deleteProgress,
                         )
                     }
-                    entry<YouRoute> { YouScreen() }
+                    entry<YouRoute> {
+                        YouScreen(
+                            syncState = state.sync,
+                            onConnectOrSync = viewModel::connectOrSyncDrive,
+                            onDisconnect = viewModel::disconnectDrive,
+                        )
+                    }
                     entry<GoalDetailRoute> { route ->
                         val goal = state.goal(route.goalId)
                         GoalDetailScreen(
@@ -263,3 +303,6 @@ fun KajuGoalsApp(
         }
     }
 }
+
+private const val FAST_NAV_ENTER_MILLIS = 160
+private const val FAST_NAV_EXIT_MILLIS = 90

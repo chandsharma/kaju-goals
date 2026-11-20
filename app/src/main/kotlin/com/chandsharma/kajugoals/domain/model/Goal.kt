@@ -6,6 +6,7 @@ enum class GoalMetricType {
     COUNT,
     DURATION_MINUTES,
     PERCENTAGE,
+    CURRENCY,
     BINARY,
 }
 

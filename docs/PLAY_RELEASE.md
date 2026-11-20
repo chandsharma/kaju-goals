@@ -29,6 +29,8 @@ Do not commit either private file, print its password, or expose it in logs. Dis
 2. Create the Play Console app under the publisher above.
 3. Enable Play App Signing and upload an AAB signed by the local upload key.
 4. Record the Play app-signing SHA-1/SHA-256. Register exact package/signing pairs with Google APIs only if the app uses those APIs.
+   - Kaju Goals uses optional Google Drive `appDataFolder` authorization. Create the production Android OAuth client for `com.chandsharma.kajugoals` with the Play App Signing SHA-1 after the Play app exists. Do not reuse the debug client or upload-key SHA-1.
+   - Finish OAuth branding URLs/icon and move the external OAuth app out of Testing only as part of the approved release workflow. The development project/configuration is recorded in `docs/SYNC_ARCHITECTURE.md`.
 5. Complete store listing, icon, feature graphic, real-device screenshots, privacy policy, Data safety, ads, content rating, target audience, app access, permissions/declarations, and country availability from the actual implementation.
 6. Run unit, lint, release, device, accessibility, backup/restore, upgrade, and signing checks. Inspect the final AAB and verify the version code is new.
 7. Use internal testing when it materially improves release confidence. Submit production only when requested and report whether it is draft, in review, approved, or live.

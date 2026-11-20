@@ -23,8 +23,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,6 +53,7 @@ import com.chandsharma.kajugoals.domain.model.Goal
 import com.chandsharma.kajugoals.domain.model.GoalStatus
 import com.chandsharma.kajugoals.ui.format.formattedCurrent
 import com.chandsharma.kajugoals.ui.format.formattedTarget
+import com.chandsharma.kajugoals.ui.format.metricSymbol
 import com.chandsharma.kajugoals.ui.theme.KajuTheme
 
 private val LargeCardShape = RoundedCornerShape(32.dp)
@@ -215,86 +218,99 @@ fun GoalListCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = CardDefaults.outlinedCardBorder(),
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(KajuTheme.extendedColors.glacier, CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
-                ProgressRing(
-                    progress = goal.progressFraction,
-                    label = "${goal.progressPercent}%",
-                    modifier = Modifier.size(64.dp),
-                    strokeWidth = 9f,
+                Text(
+                    text = metricSymbol(goal.metricType, goal.unitLabel),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                 )
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = goal.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "${goal.formattedCurrent()} / ${goal.formattedTarget()}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Goal actions")
-                    }
-                    DropdownMenu(
-                        expanded = menuOpen,
-                        onDismissRequest = { menuOpen = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Edit") },
-                            onClick = {
-                                menuOpen = false
-                                onEdit()
-                            },
-                        )
-                        val nextStatus = if (goal.status == GoalStatus.PAUSED) GoalStatus.ACTIVE else GoalStatus.PAUSED
-                        DropdownMenuItem(
-                            text = { Text(if (nextStatus == GoalStatus.ACTIVE) "Resume" else "Pause") },
-                            onClick = {
-                                menuOpen = false
-                                onStatusChange(nextStatus)
-                            },
-                        )
-                        if (!goal.isComplete) {
-                            DropdownMenuItem(
-                                text = { Text("Mark complete") },
-                                onClick = {
-                                    menuOpen = false
-                                    onStatusChange(GoalStatus.COMPLETED)
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("Archive") },
-                            onClick = {
-                                menuOpen = false
-                                onStatusChange(GoalStatus.ARCHIVED)
-                            },
-                        )
-                    }
-                }
             }
-            Button(
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Text(
+                    text = goal.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${goal.formattedCurrent()} of ${goal.formattedTarget()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                LinearProgressIndicator(
+                    progress = { goal.progressFraction },
+                    modifier = Modifier
+                    .fillMaxWidth()
+                        .height(6.dp),
+                    strokeCap = StrokeCap.Round,
+                )
+            }
+            FilledTonalIconButton(
                 onClick = onLog,
                 enabled = goal.status == GoalStatus.ACTIVE && !goal.isComplete,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(48.dp),
             ) {
-                Text(if (goal.isComplete) "Complete" else "Log progress")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = if (goal.isComplete) "Goal complete" else "Log progress",
+                )
+            }
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Goal actions")
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Edit") },
+                        onClick = {
+                            menuOpen = false
+                            onEdit()
+                        },
+                    )
+                    val nextStatus = if (goal.status == GoalStatus.PAUSED) GoalStatus.ACTIVE else GoalStatus.PAUSED
+                    DropdownMenuItem(
+                        text = { Text(if (nextStatus == GoalStatus.ACTIVE) "Resume" else "Pause") },
+                        onClick = {
+                            menuOpen = false
+                            onStatusChange(nextStatus)
+                        },
+                    )
+                    if (!goal.isComplete) {
+                        DropdownMenuItem(
+                            text = { Text("Mark complete") },
+                            onClick = {
+                                menuOpen = false
+                                onStatusChange(GoalStatus.COMPLETED)
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text("Archive") },
+                        onClick = {
+                            menuOpen = false
+                            onStatusChange(GoalStatus.ARCHIVED)
+                        },
+                    )
+                }
             }
         }
     }

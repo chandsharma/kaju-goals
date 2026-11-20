@@ -27,4 +27,7 @@ data class ProgressEntryEntity(
     val note: String?,
     val occurredAt: Long,
     val createdAt: Long,
+    val updatedAt: Long = createdAt,
+    val mutationId: String = id,
+    val deletedAt: Long? = null,
 )

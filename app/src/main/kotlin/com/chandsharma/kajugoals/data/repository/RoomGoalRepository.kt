@@ -16,6 +16,7 @@ class RoomGoalRepository @Inject constructor(
     private val goalDao: GoalDao,
     private val timeProvider: TimeProvider,
     private val idGenerator: IdGenerator,
+    private val syncScheduler: SyncScheduler,
 ) : GoalRepository {
     override fun observeGoals(): Flow<List<Goal>> =
         goalDao.observeGoalSummaries().map { rows ->
@@ -64,6 +65,7 @@ class RoomGoalRepository @Inject constructor(
         require(draft.targetValue > 0L) { "Goal target must be greater than zero" }
         val now = timeProvider.nowMillis()
         val id = idGenerator.newId()
+        val mutationId = idGenerator.newId()
         goalDao.insertGoal(
             GoalEntity(
                 id = id,
@@ -75,8 +77,10 @@ class RoomGoalRepository @Inject constructor(
                 createdAt = now,
                 updatedAt = now,
                 sortOrder = now,
+                mutationId = mutationId,
             ),
         )
+        syncScheduler.requestSync()
         return id
     }
 
@@ -91,8 +95,10 @@ class RoomGoalRepository @Inject constructor(
                 targetValue = draft.targetValue,
                 unitLabel = draft.unitLabel.trim(),
                 updatedAt = timeProvider.nowMillis(),
+                mutationId = idGenerator.newId(),
             ),
         )
+        syncScheduler.requestSync()
     }
 
     override suspend fun logProgress(goalId: String, delta: Long, note: String?): String {
@@ -108,17 +114,33 @@ class RoomGoalRepository @Inject constructor(
                 note = note?.trim()?.takeIf(String::isNotBlank),
                 occurredAt = now,
                 createdAt = now,
+                updatedAt = now,
+                mutationId = idGenerator.newId(),
             ),
         )
+        syncScheduler.requestSync()
         return id
     }
 
     override suspend fun deleteProgress(entryId: String) {
-        goalDao.deleteProgress(entryId)
+        val now = timeProvider.nowMillis()
+        goalDao.tombstoneProgress(
+            entryId = entryId,
+            deletedAt = now,
+            updatedAt = now,
+            mutationId = idGenerator.newId(),
+        )
+        syncScheduler.requestSync()
     }
 
     override suspend fun setGoalStatus(goalId: String, status: GoalStatus) {
-        goalDao.updateGoalStatus(goalId, status, timeProvider.nowMillis())
+        goalDao.updateGoalStatus(
+            goalId = goalId,
+            status = status,
+            updatedAt = timeProvider.nowMillis(),
+            mutationId = idGenerator.newId(),
+        )
+        syncScheduler.requestSync()
     }
 }
 
@@ -128,4 +150,8 @@ fun interface TimeProvider {
 
 fun interface IdGenerator {
     fun newId(): String
+}
+
+fun interface SyncScheduler {
+    fun requestSync()
 }
