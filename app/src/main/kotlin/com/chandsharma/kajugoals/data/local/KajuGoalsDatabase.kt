@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [GoalEntity::class, ProgressEntryEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class KajuGoalsDatabase : RoomDatabase() {
@@ -28,6 +28,16 @@ abstract class KajuGoalsDatabase : RoomDatabase() {
                 )
                 db.execSQL("ALTER TABLE progress_entries ADD COLUMN deletedAt INTEGER")
                 db.execSQL("UPDATE progress_entries SET updatedAt = createdAt, mutationId = id")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE goals ADD COLUMN deadlineAt INTEGER")
+                db.execSQL("ALTER TABLE goals ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE goals ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE goals ADD COLUMN reminderAt INTEGER")
+                db.execSQL("ALTER TABLE goals ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'NONE'")
             }
         }
     }

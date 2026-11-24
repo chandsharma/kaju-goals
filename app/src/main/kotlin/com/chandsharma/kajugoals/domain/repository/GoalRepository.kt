@@ -15,9 +15,23 @@ interface GoalRepository {
 
     suspend fun updateGoal(goalId: String, draft: GoalDraft)
 
-    suspend fun logProgress(goalId: String, delta: Long, note: String? = null): String
+    suspend fun logProgress(
+        goalId: String,
+        delta: Long,
+        note: String? = null,
+        occurredAt: Long? = null,
+    ): String
+
+    suspend fun updateProgress(
+        entryId: String,
+        delta: Long,
+        note: String? = null,
+        occurredAt: Long,
+    )
 
     suspend fun deleteProgress(entryId: String)
 
     suspend fun setGoalStatus(goalId: String, status: GoalStatus)
+
+    suspend fun setGoalPinned(goalId: String, isPinned: Boolean)
 }

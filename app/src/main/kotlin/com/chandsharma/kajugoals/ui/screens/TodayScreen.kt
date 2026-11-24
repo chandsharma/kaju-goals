@@ -46,7 +46,7 @@ fun TodayScreen(
                 title = {
                     androidx.compose.foundation.layout.Column {
                         Text("KAJU GOALS", style = MaterialTheme.typography.labelLarge)
-                        Text("Good morning", style = MaterialTheme.typography.headlineLarge)
+                        Text("Today", style = MaterialTheme.typography.headlineLarge)
                     }
                 },
             )

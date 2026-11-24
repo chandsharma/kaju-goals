@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Kaju Goals</string>
+    <string name="widget_description">Your next active goal and exact progress</string>
 </resources>

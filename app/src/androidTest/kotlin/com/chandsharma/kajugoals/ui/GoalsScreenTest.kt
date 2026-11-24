@@ -23,11 +23,15 @@ class GoalsScreenTest {
                     state = MainUiState(isLoading = false),
                     onFilterChange = {},
                     onSortChange = {},
+                    onSearchQueryChange = {},
                     onCreateGoal = { clicked = true },
                     onOpenGoal = {},
                     onEditGoal = {},
                     onLogGoal = {},
                     onStatusChange = { _, _ -> },
+                    onPinChange = { _, _ -> },
+                    onDuplicate = {},
+                    onArchiveGoals = {},
                 )
             }
         }

@@ -46,6 +46,7 @@ import com.chandsharma.kajugoals.ui.screens.GoalDetailScreen
 import com.chandsharma.kajugoals.ui.screens.GoalFormScreen
 import com.chandsharma.kajugoals.ui.screens.GoalsScreen
 import com.chandsharma.kajugoals.ui.screens.ProgressScreen
+import com.chandsharma.kajugoals.ui.screens.ProgressEditorSheet
 import com.chandsharma.kajugoals.ui.screens.QuickLogSheet
 import com.chandsharma.kajugoals.ui.screens.TodayScreen
 import com.chandsharma.kajugoals.ui.screens.YouScreen
@@ -85,6 +86,9 @@ private enum class TopLevelDestination(
 fun KajuGoalsApp(
     state: MainUiState,
     viewModel: MainViewModel,
+    appLockEnabled: Boolean,
+    appLockAvailable: Boolean,
+    onAppLockChange: (Boolean) -> Unit,
     onExit: () -> Unit,
 ) {
     val todayStack = rememberNavBackStack(TodayRoute)
@@ -93,6 +97,7 @@ fun KajuGoalsApp(
     val youStack = rememberNavBackStack(YouRoute)
     var selectedDestinationName by rememberSaveable { mutableStateOf(TopLevelDestination.TODAY.name) }
     var quickLogGoalId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editProgressId by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val navigationSuiteState = rememberNavigationSuiteScaffoldState()
     val driveAuthorizationLauncher = rememberLauncherForActivityResult(
@@ -104,6 +109,15 @@ fun KajuGoalsApp(
             viewModel.handleDriveAuthorizationResult(null)
         }
     }
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> uri?.let(viewModel::exportJson) }
+    val exportCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri -> uri?.let(viewModel::exportCsv) }
+    val importJsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::importJson) }
     val selectedDestination = TopLevelDestination.valueOf(selectedDestinationName)
     val currentStack = when (selectedDestination) {
         TopLevelDestination.TODAY -> todayStack
@@ -178,7 +192,11 @@ fun KajuGoalsApp(
                 is MainEvent.ProgressLogged -> {
                     quickLogGoalId = null
                     val result = snackbarHostState.showSnackbar(
-                        message = "Progress logged for ${event.goalTitle}",
+                        message = if (event.completed) {
+                            "Goal complete — ${event.goalTitle}"
+                        } else {
+                            "Progress logged for ${event.goalTitle}"
+                        },
                         actionLabel = "Undo",
                     )
                     if (result == SnackbarResult.ActionPerformed) {
@@ -239,11 +257,15 @@ fun KajuGoalsApp(
                             state = state,
                             onFilterChange = viewModel::setFilter,
                             onSortChange = viewModel::setSort,
+                            onSearchQueryChange = viewModel::setSearchQuery,
                             onCreateGoal = { openGoalForm() },
                             onOpenGoal = ::openGoal,
                             onEditGoal = ::openGoalForm,
                             onLogGoal = { quickLogGoalId = it.id },
                             onStatusChange = viewModel::setGoalStatus,
+                            onPinChange = viewModel::setGoalPinned,
+                            onDuplicate = viewModel::duplicateGoal,
+                            onArchiveGoals = viewModel::archiveGoals,
                         )
                     }
                     entry<ProgressRoute> {
@@ -252,6 +274,7 @@ fun KajuGoalsApp(
                             onCreateGoal = { openGoalForm() },
                             onOpenGoal = ::openGoal,
                             onDeleteProgress = viewModel::deleteProgress,
+                            onEditProgress = { editProgressId = it.id },
                         )
                     }
                     entry<YouRoute> {
@@ -259,6 +282,12 @@ fun KajuGoalsApp(
                             syncState = state.sync,
                             onConnectOrSync = viewModel::connectOrSyncDrive,
                             onDisconnect = viewModel::disconnectDrive,
+                            onExportJson = { exportJsonLauncher.launch("kaju-goals-backup.json") },
+                            onExportCsv = { exportCsvLauncher.launch("kaju-goals-data.csv") },
+                            onImportJson = { importJsonLauncher.launch(arrayOf("application/json", "text/plain")) },
+                            appLockEnabled = appLockEnabled,
+                            appLockAvailable = appLockAvailable,
+                            onAppLockChange = onAppLockChange,
                         )
                     }
                     entry<GoalDetailRoute> { route ->
@@ -270,6 +299,7 @@ fun KajuGoalsApp(
                             onEdit = { openGoalForm(route.goalId) },
                             onLog = { if (goal != null) quickLogGoalId = goal.id },
                             onDeleteProgress = viewModel::deleteProgress,
+                            onEditProgress = { editProgressId = it.id },
                         )
                     }
                     entry<GoalFormRoute> { route ->
@@ -296,8 +326,23 @@ fun KajuGoalsApp(
         ModalBottomSheet(onDismissRequest = { quickLogGoalId = null }) {
             QuickLogSheet(
                 goal = quickLogGoal,
-                onSave = { delta, note ->
-                    viewModel.logProgress(quickLogGoal, delta, note)
+                onSave = { delta, note, occurredAt ->
+                    viewModel.logProgress(quickLogGoal, delta, note, occurredAt)
+                },
+            )
+        }
+    }
+
+    val editingProgress = editProgressId?.let { id ->
+        state.recentProgress.firstOrNull { it.id == id }
+    }
+    if (editingProgress != null) {
+        ModalBottomSheet(onDismissRequest = { editProgressId = null }) {
+            ProgressEditorSheet(
+                record = editingProgress,
+                onSave = { delta, note, occurredAt ->
+                    editProgressId = null
+                    viewModel.updateProgress(editingProgress, delta, note, occurredAt)
                 },
             )
         }

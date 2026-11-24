@@ -1,6 +1,6 @@
 # Google Drive sync architecture
 
-Last updated: 20 November 2026 (Asia/Kolkata)
+Last updated: 24 November 2026 (Asia/Kolkata)
 
 ## Product boundary
 
@@ -43,7 +43,7 @@ Before a public release:
 
 ## Local source of truth
 
-Room database version 2 stores goals and progress. Every syncable record has:
+Room database version 3 stores goals and progress. Goal records now include optional deadline, reminder, category, pinning, and recurrence fields. Every syncable record has:
 
 - a stable UUID;
 - an `updatedAt` epoch-millisecond timestamp;
@@ -54,14 +54,14 @@ Progress totals are still derived from nondeleted progress entries. Deletion nev
 
 ## Snapshot format
 
-The hidden file is named `kaju_goals_snapshot_v1.json` and contains:
+The hidden file remains named `kaju_goals_snapshot_v1.json` and contains:
 
 - snapshot schema version;
 - generation time and installation-scoped random device ID;
 - complete goal and progress payload, including tombstones;
 - SHA-256 checksum over the deterministic serialized payload.
 
-An unsupported schema, malformed JSON, or checksum mismatch stops sync before any Drive write. The app never logs the snapshot body or token.
+The current snapshot schema is 2. The decoder retains schema-1 checksum and payload compatibility so an existing Drive snapshot can be upgraded through the normal merge-first path. New goal fields have safe defaults. An unsupported schema, malformed JSON, or checksum mismatch stops sync before any Drive write. The app never logs the snapshot body or token.
 
 ## Merge-first algorithm
 
@@ -102,5 +102,7 @@ Automated tests currently cover:
 - a newer deletion tombstone cannot be resurrected by an older snapshot;
 - orphan progress is excluded;
 - Room v1→v2 migration preserves goals/progress and initializes sync metadata.
+- Room v2→v3 migration preserves goals/progress and initializes deadline, reminder, category, pinning, and recurrence defaults.
+- legacy Drive schema-1 snapshots decode and validate before merging into schema 2.
 
 Still required before public release: a disposable real-account upload, fresh-install restore, revoked-consent recovery, offline queue, two-device conflict, corrupt-file refusal, large-snapshot, and process-death test matrix.

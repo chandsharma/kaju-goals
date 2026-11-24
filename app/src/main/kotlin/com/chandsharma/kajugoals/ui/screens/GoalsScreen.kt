@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -25,13 +26,16 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -49,18 +53,44 @@ fun GoalsScreen(
     state: MainUiState,
     onFilterChange: (GoalFilter) -> Unit,
     onSortChange: (GoalSort) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     onCreateGoal: () -> Unit,
     onOpenGoal: (String) -> Unit,
     onEditGoal: (String) -> Unit,
     onLogGoal: (Goal) -> Unit,
     onStatusChange: (String, GoalStatus) -> Unit,
+    onPinChange: (String, Boolean) -> Unit,
+    onDuplicate: (Goal) -> Unit,
+    onArchiveGoals: (Set<String>) -> Unit,
 ) {
     var sortMenuOpen by remember { mutableStateOf(false) }
+    var selectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Goals", style = MaterialTheme.typography.headlineLarge) },
+                title = {
+                    Text(
+                        if (selectionMode) "${selectedIds.size} selected" else "Goals",
+                        style = MaterialTheme.typography.headlineLarge,
+                    )
+                },
                 actions = {
+                    if (selectionMode) {
+                        TextButton(
+                            onClick = {
+                                onArchiveGoals(selectedIds.toSet())
+                                selectedIds = emptyList()
+                                selectionMode = false
+                            },
+                            enabled = selectedIds.isNotEmpty(),
+                        ) { Text("Archive") }
+                        TextButton(onClick = {
+                            selectedIds = emptyList()
+                            selectionMode = false
+                        }) { Text("Cancel") }
+                    } else {
+                        TextButton(onClick = { selectionMode = true }) { Text("Select") }
                     Box {
                         IconButton(onClick = { sortMenuOpen = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Sort goals")
@@ -93,6 +123,7 @@ fun GoalsScreen(
                             }
                         }
                     }
+                    }
                 },
             )
         },
@@ -113,6 +144,16 @@ fun GoalsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            item {
+                OutlinedTextField(
+                    value = state.searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search goals") },
+                    placeholder = { Text("Name or category") },
+                    singleLine = true,
+                )
+            }
             item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -149,10 +190,23 @@ fun GoalsScreen(
                 ) { goal ->
                     GoalListCard(
                         goal = goal,
-                        onOpen = { onOpenGoal(goal.id) },
+                        onOpen = {
+                            if (selectionMode) {
+                                selectedIds = if (goal.id in selectedIds) {
+                                    selectedIds - goal.id
+                                } else {
+                                    selectedIds + goal.id
+                                }
+                            } else {
+                                onOpenGoal(goal.id)
+                            }
+                        },
                         onLog = { onLogGoal(goal) },
                         onEdit = { onEditGoal(goal.id) },
                         onStatusChange = { onStatusChange(goal.id, it) },
+                        onPinChange = { onPinChange(goal.id, it) },
+                        onDuplicate = { onDuplicate(goal) },
+                        selected = goal.id in selectedIds,
                     )
                 }
                 item { Spacer(Modifier.padding(1.dp)) }

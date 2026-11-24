@@ -5,6 +5,7 @@ import com.chandsharma.kajugoals.domain.model.GoalMetricType
 import com.chandsharma.kajugoals.domain.model.ProgressRecord
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
@@ -17,8 +18,41 @@ fun Goal.formattedCurrent(): String = formatMetricValue(metricType, currentValue
 
 fun Goal.formattedTarget(): String = formatMetricValue(metricType, targetValue, unitLabel)
 
-fun ProgressRecord.formattedDelta(): String =
-    "+${formatMetricValue(metricType, delta, unitLabel)}"
+fun ProgressRecord.formattedDelta(): String = when {
+    metricType == GoalMetricType.BINARY && delta < 0L -> "Reopened"
+    metricType == GoalMetricType.BINARY -> "Completed"
+    delta < 0L -> "−${formatMetricValue(metricType, -delta, unitLabel)}"
+    else -> "+${formatMetricValue(metricType, delta, unitLabel)}"
+}
+
+fun editableMetricValue(type: GoalMetricType, storedValue: Long, unitLabel: String): String = when (type) {
+    GoalMetricType.CURRENCY -> BigDecimal(storedValue).movePointLeft(2).stripTrailingZeros().toPlainString()
+    GoalMetricType.DURATION_MINUTES -> if (unitLabel == "hours") {
+        BigDecimal(storedValue).divide(BigDecimal("60"), 4, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
+    } else {
+        storedValue.toString()
+    }
+    else -> storedValue.toString()
+}
+
+fun parseMetricValue(type: GoalMetricType, text: String, unitLabel: String): Long? = runCatching {
+    when (type) {
+        GoalMetricType.CURRENCY -> BigDecimal(text)
+            .setScale(2, RoundingMode.UNNECESSARY)
+            .movePointRight(2)
+            .longValueExact()
+        GoalMetricType.DURATION_MINUTES -> BigDecimal(text)
+            .multiply(if (unitLabel == "hours") BigDecimal("60") else BigDecimal.ONE)
+            .setScale(0, RoundingMode.UNNECESSARY)
+            .longValueExact()
+        GoalMetricType.PERCENTAGE,
+        GoalMetricType.COUNT,
+        GoalMetricType.BINARY,
+        -> text.toLong()
+    }
+}.getOrNull()
 
 fun formatMetricValue(type: GoalMetricType, value: Long, unitLabel: String): String =
     when (type) {

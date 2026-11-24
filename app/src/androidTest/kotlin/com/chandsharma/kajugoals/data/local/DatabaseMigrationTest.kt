@@ -64,7 +64,43 @@ class DatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrate2To3_preservesDataAndInitializesPlanningFields() {
+        helper.createDatabase(TEST_DATABASE_V3, 2).apply {
+            execSQL(
+                """
+                INSERT INTO goals (
+                    id, title, metricType, targetValue, unitLabel, status,
+                    createdAt, updatedAt, sortOrder, mutationId, deletedAt
+                ) VALUES ('goal-2', 'Save money', 'CURRENCY', 100000, 'INR', 'ACTIVE',
+                    1, 2, 1, 'mutation-2', NULL)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DATABASE_V3,
+            3,
+            true,
+            KajuGoalsDatabase.MIGRATION_2_3,
+        ).use { database ->
+            database.query(
+                "SELECT deadlineAt, category, isPinned, reminderAt, recurrence, mutationId FROM goals WHERE id = 'goal-2'",
+            ).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(true, cursor.isNull(0))
+                assertEquals("", cursor.getString(1))
+                assertEquals(0, cursor.getInt(2))
+                assertEquals(true, cursor.isNull(3))
+                assertEquals("NONE", cursor.getString(4))
+                assertEquals("mutation-2", cursor.getString(5))
+            }
+        }
+    }
+
     private companion object {
         const val TEST_DATABASE = "migration-test"
+        const val TEST_DATABASE_V3 = "migration-test-v3"
     }
 }

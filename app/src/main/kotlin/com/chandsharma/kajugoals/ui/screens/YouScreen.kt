@@ -19,6 +19,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -36,6 +37,12 @@ fun YouScreen(
     syncState: SyncUiState,
     onConnectOrSync: () -> Unit,
     onDisconnect: () -> Unit,
+    onExportJson: () -> Unit,
+    onExportCsv: () -> Unit,
+    onImportJson: () -> Unit,
+    appLockEnabled: Boolean,
+    appLockAvailable: Boolean,
+    onAppLockChange: (Boolean) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -55,6 +62,63 @@ fun YouScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("App lock", style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                if (appLockAvailable) {
+                                    "Use your biometric or Android screen lock"
+                                } else {
+                                    "Set up device security in Android settings first"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = appLockEnabled,
+                            onCheckedChange = onAppLockChange,
+                            enabled = appLockAvailable,
+                        )
+                    }
+                }
+            }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(KajuTheme.extendedColors.periwinkle, RoundedCornerShape(28.dp))
+                        .padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("Own your data", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        "Save a complete JSON backup, restore it with merge-first safety, or export a spreadsheet-friendly CSV.",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Button(onClick = onExportJson, modifier = Modifier.fillMaxWidth()) {
+                        Text("Save JSON backup")
+                    }
+                    OutlinedButton(onClick = onImportJson, modifier = Modifier.fillMaxWidth()) {
+                        Text("Restore JSON backup")
+                    }
+                    OutlinedButton(onClick = onExportCsv, modifier = Modifier.fillMaxWidth()) {
+                        Text("Export CSV")
+                    }
+                }
+            }
             item {
                 Column(
                     modifier = Modifier

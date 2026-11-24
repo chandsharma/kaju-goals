@@ -1,6 +1,7 @@
 package com.chandsharma.kajugoals.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,7 +51,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.chandsharma.kajugoals.domain.model.Goal
+import com.chandsharma.kajugoals.domain.model.GoalMetricType
+import com.chandsharma.kajugoals.domain.model.GoalRecurrence
 import com.chandsharma.kajugoals.domain.model.GoalStatus
+import com.chandsharma.kajugoals.domain.logic.GoalPaceCalculator
+import com.chandsharma.kajugoals.domain.logic.PaceStatus
 import com.chandsharma.kajugoals.ui.format.formattedCurrent
 import com.chandsharma.kajugoals.ui.format.formattedTarget
 import com.chandsharma.kajugoals.ui.format.metricSymbol
@@ -140,7 +145,7 @@ fun GoalHeroCard(
         onClick = onOpen,
         modifier = modifier
             .fillMaxWidth()
-            .shadow(18.dp, LargeCardShape, ambientColor = MaterialTheme.colorScheme.outlineVariant),
+            .shadow(8.dp, LargeCardShape, ambientColor = MaterialTheme.colorScheme.outlineVariant),
         shape = LargeCardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -180,6 +185,13 @@ fun GoalHeroCard(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    goalPaceLine(goal)?.let { line ->
+                        Text(
+                            text = line,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
             Button(
@@ -209,6 +221,9 @@ fun GoalListCard(
     onEdit: () -> Unit,
     onStatusChange: (GoalStatus) -> Unit,
     modifier: Modifier = Modifier,
+    onPinChange: (Boolean) -> Unit = {},
+    onDuplicate: () -> Unit = {},
+    selected: Boolean = false,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     Card(
@@ -216,7 +231,11 @@ fun GoalListCard(
         modifier = modifier.fillMaxWidth(),
         shape = SmallCardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = CardDefaults.outlinedCardBorder(),
+        border = if (selected) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            CardDefaults.outlinedCardBorder()
+        },
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -226,7 +245,7 @@ fun GoalListCard(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(KajuTheme.extendedColors.glacier, CircleShape),
+                    .background(metricColor(goal.metricType), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -246,6 +265,19 @@ fun GoalListCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                val paceLine = goalPaceLine(goal)
+                if (goal.isPinned || goal.category.isNotBlank() || paceLine != null) {
+                    Text(
+                        text = listOfNotNull(
+                            "PINNED".takeIf { goal.isPinned },
+                            goal.category.takeIf(String::isNotBlank),
+                            recurrenceLine(goal.recurrence),
+                            paceLine,
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 Text(
                     text = "${goal.formattedCurrent()} of ${goal.formattedTarget()}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -280,40 +312,96 @@ fun GoalListCard(
                     onDismissRequest = { menuOpen = false },
                 ) {
                     DropdownMenuItem(
+                        text = { Text(if (goal.isPinned) "Unpin" else "Pin to top") },
+                        onClick = {
+                            menuOpen = false
+                            onPinChange(!goal.isPinned)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Duplicate") },
+                        onClick = {
+                            menuOpen = false
+                            onDuplicate()
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Edit") },
                         onClick = {
                             menuOpen = false
                             onEdit()
                         },
                     )
-                    val nextStatus = if (goal.status == GoalStatus.PAUSED) GoalStatus.ACTIVE else GoalStatus.PAUSED
-                    DropdownMenuItem(
-                        text = { Text(if (nextStatus == GoalStatus.ACTIVE) "Resume" else "Pause") },
-                        onClick = {
-                            menuOpen = false
-                            onStatusChange(nextStatus)
-                        },
-                    )
-                    if (!goal.isComplete) {
+                    if (goal.status == GoalStatus.ARCHIVED) {
                         DropdownMenuItem(
-                            text = { Text("Mark complete") },
+                            text = { Text("Restore to active") },
                             onClick = {
                                 menuOpen = false
-                                onStatusChange(GoalStatus.COMPLETED)
+                                onStatusChange(GoalStatus.ACTIVE)
+                            },
+                        )
+                    } else {
+                        val nextStatus = if (goal.status == GoalStatus.PAUSED) {
+                            GoalStatus.ACTIVE
+                        } else {
+                            GoalStatus.PAUSED
+                        }
+                        DropdownMenuItem(
+                            text = { Text(if (nextStatus == GoalStatus.ACTIVE) "Resume" else "Pause") },
+                            onClick = {
+                                menuOpen = false
+                                onStatusChange(nextStatus)
+                            },
+                        )
+                        if (!goal.isComplete) {
+                            DropdownMenuItem(
+                                text = { Text("Mark complete") },
+                                onClick = {
+                                    menuOpen = false
+                                    onStatusChange(GoalStatus.COMPLETED)
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Archive") },
+                            onClick = {
+                                menuOpen = false
+                                onStatusChange(GoalStatus.ARCHIVED)
                             },
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text("Archive") },
-                        onClick = {
-                            menuOpen = false
-                            onStatusChange(GoalStatus.ARCHIVED)
-                        },
-                    )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun metricColor(type: GoalMetricType) = when (type) {
+    GoalMetricType.COUNT -> KajuTheme.extendedColors.glacier
+    GoalMetricType.DURATION_MINUTES -> KajuTheme.extendedColors.mint
+    GoalMetricType.PERCENTAGE -> KajuTheme.extendedColors.periwinkle
+    GoalMetricType.CURRENCY -> KajuTheme.extendedColors.clay
+    GoalMetricType.BINARY -> KajuTheme.extendedColors.mint
+}
+
+private fun goalPaceLine(goal: Goal): String? {
+    if (goal.deadlineAt == null) return null
+    val pace = GoalPaceCalculator.calculate(goal, System.currentTimeMillis())
+    return when (pace.status) {
+        PaceStatus.COMPLETE -> "COMPLETE"
+        PaceStatus.ON_PACE -> "${pace.daysRemaining} DAYS · ON PACE"
+        PaceStatus.BEHIND -> "${pace.daysRemaining} DAYS · NEEDS PACE"
+        PaceStatus.OVERDUE -> "DEADLINE PASSED"
+        PaceStatus.NO_DEADLINE -> null
+    }
+}
+
+private fun recurrenceLine(recurrence: GoalRecurrence): String? = when (recurrence) {
+    GoalRecurrence.NONE -> null
+    GoalRecurrence.DAILY -> "DAILY"
+    GoalRecurrence.WEEKLY -> "WEEKLY"
+    GoalRecurrence.MONTHLY -> "MONTHLY"
 }
 
 @Composable

@@ -3,6 +3,7 @@ package com.chandsharma.kajugoals.data.sync
 import com.chandsharma.kajugoals.data.local.GoalDao
 import com.chandsharma.kajugoals.data.local.GoalEntity
 import com.chandsharma.kajugoals.data.local.ProgressEntryEntity
+import com.chandsharma.kajugoals.data.repository.WidgetUpdater
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +40,41 @@ internal data class SyncGoal(
     val createdAt: Long,
     val updatedAt: Long,
     val sortOrder: Long,
+    val deadlineAt: Long? = null,
+    val category: String = "",
+    val isPinned: Boolean = false,
+    val reminderAt: Long? = null,
+    val recurrence: String = "NONE",
+    val mutationId: String,
+    val deletedAt: Long? = null,
+)
+
+@Serializable
+private data class LegacySyncEnvelope(
+    val schemaVersion: Int,
+    val generatedAt: Long,
+    val deviceId: String,
+    val payload: LegacySyncPayload,
+    val checksum: String,
+)
+
+@Serializable
+private data class LegacySyncPayload(
+    val goals: List<LegacySyncGoal>,
+    val progressEntries: List<SyncProgressEntry>,
+)
+
+@Serializable
+private data class LegacySyncGoal(
+    val id: String,
+    val title: String,
+    val metricType: String,
+    val targetValue: Long,
+    val unitLabel: String,
+    val status: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val sortOrder: Long,
     val mutationId: String,
     val deletedAt: Long? = null,
 )
@@ -63,6 +99,7 @@ class DriveSyncEngine @Inject constructor(
     private val goalDao: GoalDao,
     private val driveApi: DriveApi,
     private val syncStateStore: SyncStateStore,
+    private val widgetUpdater: WidgetUpdater,
 ) {
     private val json = Json {
         encodeDefaults = true
@@ -94,6 +131,7 @@ class DriveSyncEngine @Inject constructor(
             goals = merged.goals.map { it.toEntity() },
             entries = merged.progressEntries.map { it.toEntity() },
         )
+        widgetUpdater.refresh()
 
         if (merged.goals.isEmpty() && merged.progressEntries.isEmpty()) return
 
@@ -118,16 +156,25 @@ class DriveSyncEngine @Inject constructor(
             .sortedBy(SyncProgressEntry::id),
     )
 
-    private fun decodeAndVerify(file: DriveSnapshotFile): SyncPayload {
-        val envelope = runCatching { json.decodeFromString<SyncEnvelope>(file.body) }
-            .getOrElse { throw SyncDataException("The Google Drive backup could not be read safely") }
-        if (envelope.schemaVersion != SYNC_SCHEMA_VERSION) {
-            throw SyncDataException("The Google Drive backup uses an unsupported format")
+    private fun decodeAndVerify(file: DriveSnapshotFile): SyncPayload = runCatching {
+        val versionProbe = json.decodeFromString<VersionProbe>(file.body)
+        when (versionProbe.schemaVersion) {
+            LEGACY_SYNC_SCHEMA_VERSION -> {
+                val legacy = json.decodeFromString<LegacySyncEnvelope>(file.body)
+                val checksum = sha256(json.encodeToString(legacy.payload))
+                if (checksum != legacy.checksum) throw integrityException()
+                legacy.payload.toCurrent()
+            }
+            SYNC_SCHEMA_VERSION -> {
+                val envelope = json.decodeFromString<SyncEnvelope>(file.body)
+                if (payloadChecksum(envelope.payload) != envelope.checksum) throw integrityException()
+                envelope.payload
+            }
+            else -> throw SyncDataException("The Google Drive backup uses an unsupported format")
         }
-        if (payloadChecksum(envelope.payload) != envelope.checksum) {
-            throw SyncDataException("The Google Drive backup did not pass its integrity check")
-        }
-        return envelope.payload
+    }.getOrElse { throwable ->
+        if (throwable is SyncDataException) throw throwable
+        throw SyncDataException("The Google Drive backup could not be read safely")
     }
 
     private fun encodeEnvelope(payload: SyncPayload): String = json.encodeToString(
@@ -140,12 +187,14 @@ class DriveSyncEngine @Inject constructor(
         ),
     )
 
-    private fun payloadChecksum(payload: SyncPayload): String {
-        val bytes = json.encodeToString(payload).toByteArray()
-        return MessageDigest.getInstance("SHA-256")
-            .digest(bytes)
+    private fun payloadChecksum(payload: SyncPayload): String = sha256(json.encodeToString(payload))
+
+    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray())
             .joinToString(separator = "") { "%02x".format(it) }
-    }
+
+    private fun integrityException() =
+        SyncDataException("The Google Drive backup did not pass its integrity check")
 
     private fun GoalEntity.toSync() = SyncGoal(
         id = id,
@@ -157,6 +206,11 @@ class DriveSyncEngine @Inject constructor(
         createdAt = createdAt,
         updatedAt = updatedAt,
         sortOrder = sortOrder,
+        deadlineAt = deadlineAt,
+        category = category,
+        isPinned = isPinned,
+        reminderAt = reminderAt,
+        recurrence = recurrence.name,
         mutationId = mutationId,
         deletedAt = deletedAt,
     )
@@ -183,6 +237,11 @@ class DriveSyncEngine @Inject constructor(
         createdAt = createdAt,
         updatedAt = updatedAt,
         sortOrder = sortOrder,
+        deadlineAt = deadlineAt,
+        category = category,
+        isPinned = isPinned,
+        reminderAt = reminderAt,
+        recurrence = com.chandsharma.kajugoals.domain.model.GoalRecurrence.valueOf(recurrence),
         mutationId = mutationId,
         deletedAt = deletedAt,
     )
@@ -200,11 +259,34 @@ class DriveSyncEngine @Inject constructor(
     )
 
     private companion object {
-        const val SYNC_SCHEMA_VERSION = 1
+        const val LEGACY_SYNC_SCHEMA_VERSION = 1
+        const val SYNC_SCHEMA_VERSION = 2
         const val MAX_CONFLICT_RETRIES = 3
         const val HTTP_PRECONDITION_FAILED = 412
     }
 }
+
+@Serializable
+private data class VersionProbe(val schemaVersion: Int)
+
+private fun LegacySyncPayload.toCurrent() = SyncPayload(
+    goals = goals.map { goal ->
+        SyncGoal(
+            id = goal.id,
+            title = goal.title,
+            metricType = goal.metricType,
+            targetValue = goal.targetValue,
+            unitLabel = goal.unitLabel,
+            status = goal.status,
+            createdAt = goal.createdAt,
+            updatedAt = goal.updatedAt,
+            sortOrder = goal.sortOrder,
+            mutationId = goal.mutationId,
+            deletedAt = goal.deletedAt,
+        )
+    },
+    progressEntries = progressEntries,
+)
 
 internal object SyncMerger {
     fun merge(payloads: List<SyncPayload>): SyncPayload {

@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 20 November 2026
+Last updated: 24 November 2026
 
 ## Shape
 
@@ -16,6 +16,9 @@ RoomGoalRepository
 Room DAO → goals + progress_entries
     ↕ merge-first snapshots
 WorkManager → Google AuthorizationClient → Drive appDataFolder
+    ↘ inexact reminder worker
+PortableDataManager → system document picker
+RoomGoalRepository → Glance widget updater
 ```
 
 Business rules and persistence do not live in composables. Screens receive immutable state and callbacks; `MainViewModel` combines repository flows with list filter/sort state and emits one-off UI events for save, log, undo, and errors.
@@ -32,7 +35,7 @@ Business rules and persistence do not live in composables. Screens receive immut
 
 ## Domain model
 
-`Goal` has an ID, title, measurement type, target, exact current value, unit, status, timestamps, and optional last-progress timestamp. Supported measurements are Count, Time in minutes, Percentage, Currency, and Binary/Done. Currency values are authoritative integer minor units in `Long`; display formatting uses the saved ISO currency code.
+`Goal` has an ID, title, measurement type, target, exact current value, unit, status, timestamps, optional last-progress/deadline/reminder/category fields, pinning, and recurrence. Supported measurements are Count, Time in minutes, Percentage, Currency, and Binary/Done. Currency values are authoritative integer minor units in `Long`; display formatting uses the saved ISO currency code. Daily, weekly, and monthly goals derive their visible current value from exact entries inside the current local period while retaining all earlier records.
 
 `ProgressRecord` is the authoritative event: ID, goal ID/title, metric/unit snapshot, integer delta, optional note, occurrence time, and creation time. Goal progress is the sum of its entries. UI percentages are derived and clamped for display; exact stored values remain integer `Long`s.
 
@@ -40,12 +43,12 @@ Goal statuses are Active, Paused, Completed, and Archived. A goal is displayed a
 
 ## Persistence
 
-Room database version 2 contains:
+Room database version 3 contains:
 
 - `goals`: durable goal definition, status, order, timestamps, deterministic mutation ID, and optional deletion tombstone
 - `progress_entries`: exact deltas and notes, indexed by goal and occurrence time, with updated/mutation timestamps and optional deletion tombstone
 
-The exported schemas and explicit v1→v2 migration are committed under `app/schemas/`; migration preservation is tested on Android SQLite. Destructive fallback is not configured.
+The exported schemas and explicit v1→v2→v3 migrations are committed under `app/schemas/`; migration preservation is tested on Android SQLite. Destructive fallback is not configured.
 
 ## Optional Drive sync
 
@@ -55,7 +58,7 @@ Every sync reads all matching hidden snapshots, verifies schema/checksum, merges
 
 ## Dependency injection
 
-Hilt constructs Room, the DAO/repository, clock/UUID generator, Drive authorization/API/engine/state, and WorkManager scheduler. Tests use an in-memory Room database, migration helper, pure sync merger, or fake repository as appropriate.
+Hilt constructs Room, the DAO/repository, clock/UUID generator, Drive authorization/API/engine/state, reminder and sync schedulers, portable-data manager, and widget updater. Tests use an in-memory Room database, migration helper, pure sync merger, or fake repository as appropriate.
 
 ## Toolchain choices
 
@@ -71,6 +74,8 @@ Hilt constructs Room, the DAO/repository, clock/UUID generator, Drive authorizat
 | WorkManager | 2.12.0 | Durable network-constrained sync scheduling |
 | Google Play services auth | 22.0.0 | Current AuthorizationClient for short-lived user-granted Drive access |
 | Kotlin serialization | 1.11.0 | Versioned deterministic JSON snapshot encoding |
+| AndroidX Biometric | 1.1.0 | Stable biometric/device-credential prompt for optional local app lock |
+| AndroidX Glance | 1.2.0 | Stable API 36-compatible home-screen widget; newer alpha requires the deferred API 37/AGP upgrade |
 
 Version warnings from lint are intentional compatibility pins, not accidental neglect. Upgrade them together only after API 37 and a matching stable AGP/Gradle/Kotlin stack are present and verified.
 
@@ -78,15 +83,15 @@ Version warnings from lint are intentional compatibility pins, not accidental ne
 
 - Internet/network-state access is used only when optional Drive sync is connected
 - No analytics, ads, telemetry, trackers, or crash reporting
-- No sensitive runtime permission
+- Notification runtime permission is requested only when the user enables a reminder; no exact-alarm, location, camera, contacts, or storage permission
 - No secrets or signing files in source
 - Release artifacts remain unsigned until the explicit release workflow
 - Progress deletion requires confirmation; newly logged progress provides immediate Undo
 
 ## Next architecture work
 
-- Add editable historical progress while preserving auditability.
 - Complete a real-account Drive upload/restore/conflict journey and add dedicated disposable-account integration coverage before public release.
-- Define a separate portable file export format before public release.
+- Define safe synced attachment-byte semantics before adding attachments.
+- Add a direct widget log action only with an undo/correction path.
 - Add stable screenshot regression when the toolchain can use AGP test suites without a deprecated plugin.
 - Consider list-detail Navigation 3 scenes for tablet/foldable layouts after the phone workflow is stable.

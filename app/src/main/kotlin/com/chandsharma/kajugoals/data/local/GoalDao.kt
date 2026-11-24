@@ -20,13 +20,22 @@ interface GoalDao {
         FROM goals
         LEFT JOIN progress_entries ON progress_entries.goalId = goals.id
              AND progress_entries.deletedAt IS NULL
-        WHERE goals.status != 'ARCHIVED'
-          AND goals.deletedAt IS NULL
+             AND (
+                 goals.recurrence = 'NONE'
+                 OR (goals.recurrence = 'DAILY' AND progress_entries.occurredAt >= :dayStart)
+                 OR (goals.recurrence = 'WEEKLY' AND progress_entries.occurredAt >= :weekStart)
+                 OR (goals.recurrence = 'MONTHLY' AND progress_entries.occurredAt >= :monthStart)
+             )
+        WHERE goals.deletedAt IS NULL
         GROUP BY goals.id
-        ORDER BY goals.sortOrder ASC, goals.createdAt DESC
+        ORDER BY goals.isPinned DESC, goals.sortOrder ASC, goals.createdAt DESC
         """,
     )
-    fun observeGoalSummaries(): Flow<List<GoalSummaryRow>>
+    fun observeGoalSummaries(
+        dayStart: Long,
+        weekStart: Long,
+        monthStart: Long,
+    ): Flow<List<GoalSummaryRow>>
 
     @Query(
         """
@@ -67,6 +76,12 @@ interface GoalDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertProgress(entry: ProgressEntryEntity)
 
+    @Query("SELECT * FROM progress_entries WHERE id = :entryId LIMIT 1")
+    suspend fun getProgress(entryId: String): ProgressEntryEntity?
+
+    @Update
+    suspend fun updateProgress(entry: ProgressEntryEntity)
+
     @Query(
         "UPDATE progress_entries SET deletedAt = :deletedAt, updatedAt = :updatedAt, " +
             "mutationId = :mutationId WHERE id = :entryId",
@@ -74,6 +89,17 @@ interface GoalDao {
     suspend fun tombstoneProgress(
         entryId: String,
         deletedAt: Long,
+        updatedAt: Long,
+        mutationId: String,
+    )
+
+    @Query(
+        "UPDATE goals SET isPinned = :isPinned, updatedAt = :updatedAt, mutationId = :mutationId " +
+            "WHERE id = :goalId",
+    )
+    suspend fun updateGoalPinned(
+        goalId: String,
+        isPinned: Boolean,
         updatedAt: Long,
         mutationId: String,
     )

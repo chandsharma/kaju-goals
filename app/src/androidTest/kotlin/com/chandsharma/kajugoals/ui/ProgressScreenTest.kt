@@ -40,6 +40,7 @@ class ProgressScreenTest {
                     onCreateGoal = {},
                     onOpenGoal = {},
                     onDeleteProgress = { deletedId = it },
+                    onEditProgress = {},
                 )
             }
         }

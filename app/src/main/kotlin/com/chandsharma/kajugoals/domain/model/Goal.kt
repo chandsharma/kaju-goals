@@ -17,6 +17,13 @@ enum class GoalStatus {
     ARCHIVED,
 }
 
+enum class GoalRecurrence {
+    NONE,
+    DAILY,
+    WEEKLY,
+    MONTHLY,
+}
+
 data class Goal(
     val id: String,
     val title: String,
@@ -28,6 +35,11 @@ data class Goal(
     val createdAt: Long,
     val updatedAt: Long,
     val lastProgressAt: Long?,
+    val deadlineAt: Long? = null,
+    val category: String = "",
+    val isPinned: Boolean = false,
+    val reminderAt: Long? = null,
+    val recurrence: GoalRecurrence = GoalRecurrence.NONE,
 ) {
     val progressFraction: Float
         get() = if (targetValue <= 0L) 0f else (currentValue.toDouble() / targetValue).toFloat().coerceIn(0f, 1f)
@@ -49,6 +61,7 @@ data class ProgressRecord(
     val note: String?,
     val occurredAt: Long,
     val createdAt: Long,
+    val updatedAt: Long = createdAt,
 )
 
 data class GoalDraft(
@@ -56,4 +69,9 @@ data class GoalDraft(
     val metricType: GoalMetricType,
     val targetValue: Long,
     val unitLabel: String,
+    val deadlineAt: Long? = null,
+    val category: String = "",
+    val isPinned: Boolean = false,
+    val reminderAt: Long? = null,
+    val recurrence: GoalRecurrence = GoalRecurrence.NONE,
 )

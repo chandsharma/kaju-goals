@@ -1,5 +1,10 @@
 package com.chandsharma.kajugoals.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,7 +18,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -29,11 +36,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +57,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -52,12 +65,21 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.chandsharma.kajugoals.domain.model.Goal
+import com.chandsharma.kajugoals.domain.logic.GoalSuggestion
+import com.chandsharma.kajugoals.domain.logic.SmartGoalParser
 import com.chandsharma.kajugoals.domain.model.GoalDraft
 import com.chandsharma.kajugoals.domain.model.GoalMetricType
+import com.chandsharma.kajugoals.domain.model.GoalRecurrence
 import com.chandsharma.kajugoals.ui.format.currencySymbol
+import com.chandsharma.kajugoals.ui.format.formatMetricValue
 import com.chandsharma.kajugoals.ui.theme.KajuTheme
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 private data class MetricChoice(
     val type: GoalMetricType,
@@ -84,6 +106,10 @@ fun GoalFormScreen(
     onSave: (GoalDraft) -> Unit,
 ) {
     val colors = KajuTheme.extendedColors
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
     val metricChoices = listOf(
         MetricChoice(GoalMetricType.COUNT, "123", "Count", "books, steps, sessions", colors.glacier),
         MetricChoice(GoalMetricType.DURATION_MINUTES, "◷", "Time", "minutes or hours", colors.mint),
@@ -92,9 +118,9 @@ fun GoalFormScreen(
         MetricChoice(GoalMetricType.BINARY, "✓", "Done", "one clear finish line", colors.glacier),
     )
     val quickStarts = listOf(
-        QuickStart("📚", "Read 12 books", GoalMetricType.COUNT, "12", "books"),
+        QuickStart("12", "Read 12 books", GoalMetricType.COUNT, "12", "books"),
         QuickStart("₹", "Save ₹1,00,000", GoalMetricType.CURRENCY, "100000", "INR"),
-        QuickStart("👟", "Walk 10,000 steps", GoalMetricType.COUNT, "10000", "steps"),
+        QuickStart("10k", "Walk 10,000 steps", GoalMetricType.COUNT, "10000", "steps"),
         QuickStart("✓", "Finish a project", GoalMetricType.BINARY, "1", "done"),
     )
 
@@ -107,6 +133,24 @@ fun GoalFormScreen(
         mutableStateOf(goal?.let(::editableTarget).orEmpty().ifBlank { "10" })
     }
     var customUnit by rememberSaveable(goal?.id) { mutableStateOf(initialCustomUnit(goal)) }
+    var deadlineAt by rememberSaveable(goal?.id) { mutableStateOf(goal?.deadlineAt) }
+    var reminderAt by rememberSaveable(goal?.id) { mutableStateOf(goal?.reminderAt) }
+    var recurrenceName by rememberSaveable(goal?.id) {
+        mutableStateOf((goal?.recurrence ?: GoalRecurrence.NONE).name)
+    }
+    var category by rememberSaveable(goal?.id) { mutableStateOf(goal?.category.orEmpty()) }
+    var manualOverride by rememberSaveable(goal?.id) { mutableStateOf(isEditing) }
+    var showMeasurementEditor by rememberSaveable(goal?.id) { mutableStateOf(isEditing) }
+    var showDetails by rememberSaveable(goal?.id) {
+        mutableStateOf(
+            isEditing && (
+                goal?.deadlineAt != null ||
+                    goal?.category?.isNotBlank() == true ||
+                    goal?.recurrence != GoalRecurrence.NONE
+                ),
+        )
+    }
+    var showDatePicker by rememberSaveable(goal?.id) { mutableStateOf(false) }
     var attemptedSave by rememberSaveable(goal?.id) { mutableStateOf(false) }
     val metric = GoalMetricType.valueOf(metricName)
     val parsedTarget = parseTarget(metric, target, unit)
@@ -117,12 +161,33 @@ fun GoalFormScreen(
         else -> unit
     }
     val canSave = title.isNotBlank() && parsedTarget != null
+    val suggestion = if (isEditing) null else SmartGoalParser.infer(title)
+    val suggestionApplied = suggestion != null && suggestion.metricType == metric &&
+        suggestion.targetValue == parsedTarget && suggestion.unitLabel == finalUnit
+    val needsMeasurementEditor = showMeasurementEditor ||
+        (title.isNotBlank() && suggestion == null)
+
+    fun applySuggestion(value: GoalSuggestion) {
+        metricName = value.metricType.name
+        unit = if (
+            value.metricType == GoalMetricType.COUNT && value.unitLabel !in standardCountUnits
+        ) {
+            customUnit = value.unitLabel
+            CUSTOM_UNIT
+        } else {
+            value.unitLabel
+        }
+        target = editableTarget(value)
+        manualOverride = false
+        showMeasurementEditor = false
+    }
 
     fun chooseMetric(newMetric: GoalMetricType) {
-        if (newMetric == metric) return
         metricName = newMetric.name
         unit = defaultUnit(newMetric)
         target = defaultTarget(newMetric)
+        manualOverride = true
+        showMeasurementEditor = true
     }
 
     Scaffold(
@@ -137,7 +202,10 @@ fun GoalFormScreen(
             )
         },
         bottomBar = {
-            Surface(shadowElevation = 10.dp) {
+            Surface(
+                modifier = Modifier.imePadding(),
+                shadowElevation = 10.dp,
+            ) {
                 Button(
                     onClick = {
                         attemptedSave = true
@@ -148,6 +216,11 @@ fun GoalFormScreen(
                                     metricType = metric,
                                     targetValue = checkNotNull(parsedTarget),
                                     unitLabel = finalUnit,
+                                    deadlineAt = deadlineAt,
+                                    category = category.trim(),
+                                    isPinned = goal?.isPinned == true,
+                                    reminderAt = reminderAt,
+                                    recurrence = GoalRecurrence.valueOf(recurrenceName),
                                 ),
                             )
                         }
@@ -178,11 +251,15 @@ fun GoalFormScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    if (isEditing) "Keep it clear and easy to log" else "Create a goal in seconds",
-                    style = MaterialTheme.typography.headlineLarge,
+                    if (isEditing) "Keep the finish line clear" else "What are you working toward?",
+                    style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    "Only the name and finish line matter. Everything else is optional.",
+                    if (isEditing) {
+                        "Change anything without losing your progress history."
+                    } else {
+                        "Type it naturally. Kaju fills in the measuring details for you."
+                    },
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -207,6 +284,9 @@ fun GoalFormScreen(
                                     metricName = preset.metric.name
                                     target = preset.target
                                     unit = preset.unit
+                                    customUnit = ""
+                                    manualOverride = false
+                                    showMeasurementEditor = false
                                 },
                             )
                         }
@@ -220,7 +300,12 @@ fun GoalFormScreen(
             ) {
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = { value ->
+                        title = value
+                        if (!manualOverride) {
+                            SmartGoalParser.infer(value)?.let(::applySuggestion)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("What do you want to achieve?") },
                     placeholder = { Text("Example: Read 12 books") },
@@ -233,48 +318,238 @@ fun GoalFormScreen(
                     singleLine = true,
                 )
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Track progress as", style = MaterialTheme.typography.titleLarge)
-                    metricChoices.chunked(2).forEach { choices ->
+                if (suggestion != null) {
+                    SuggestionCard(
+                        suggestion = suggestion,
+                        applied = suggestionApplied,
+                        onApply = { applySuggestion(suggestion) },
+                        onEdit = {
+                            manualOverride = true
+                            showMeasurementEditor = true
+                        },
+                    )
+                }
+
+                if (needsMeasurementEditor) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            if (suggestion == null && title.isNotBlank()) {
+                                "How should this be measured?"
+                            } else {
+                                "Measure with"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            metricChoices.forEach { choice ->
+                                FilterChip(
+                                    selected = choice.type == metric,
+                                    onClick = { chooseMetric(choice.type) },
+                                    label = { Text(choice.title) },
+                                    leadingIcon = { Text(choice.symbol) },
+                                )
+                            }
+                        }
+                    }
+
+                    GoalTargetEditor(
+                        metric = metric,
+                        target = target,
+                        onTargetChange = { value ->
+                            manualOverride = true
+                            target = if (
+                                metric == GoalMetricType.CURRENCY ||
+                                (metric == GoalMetricType.DURATION_MINUTES && unit == "hours")
+                            ) {
+                                value.filter { it.isDigit() || it == '.' }.take(16)
+                            } else {
+                                value.filter(Char::isDigit).take(12)
+                            }
+                        },
+                        unit = unit,
+                        onUnitChange = { selected ->
+                            manualOverride = true
+                            val wasHours = unit == "hours"
+                            unit = selected
+                            if (metric == GoalMetricType.DURATION_MINUTES) {
+                                target = convertTimeTarget(target, wasHours, selected == "hours")
+                            }
+                        },
+                        customUnit = customUnit,
+                        onCustomUnitChange = {
+                            manualOverride = true
+                            customUnit = it
+                        },
+                        isError = targetError,
+                    )
+                }
+
+                if (title.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = { showDetails = !showDetails },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (showDetails) "Hide options" else "More options · deadline, repeat, category")
+                    }
+                }
+
+                if (showDetails) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Optional details", style = MaterialTheme.typography.titleMedium)
+                        Text("Repeat", style = MaterialTheme.typography.labelLarge)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(GoalRecurrence.entries) { recurrence ->
+                                FilterChip(
+                                    selected = recurrenceName == recurrence.name,
+                                    onClick = { recurrenceName = recurrence.name },
+                                    label = { Text(recurrenceLabel(recurrence)) },
+                                )
+                            }
+                        }
+                        if (recurrenceName != GoalRecurrence.NONE.name) {
+                            Text(
+                                "Progress resets visually each period; the full history is never deleted and missed periods do not break a streak.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            choices.forEach { choice ->
-                                MetricChoiceCard(
-                                    choice = choice,
-                                    selected = choice.type == metric,
-                                    onClick = { chooseMetric(choice.type) },
-                                    modifier = Modifier.weight(1f),
+                            OutlinedButton(
+                                onClick = { showDatePicker = true },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(deadlineAt?.let(::formatDeadline) ?: "Choose deadline")
+                            }
+                            if (deadlineAt != null) {
+                                TextButton(onClick = {
+                                    deadlineAt = null
+                                    reminderAt = null
+                                }) { Text("Clear") }
+                            }
+                        }
+                        Text("Category", style = MaterialTheme.typography.labelLarge)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(categoryChoices) { choice ->
+                                FilterChip(
+                                    selected = category == choice,
+                                    onClick = { category = if (category == choice) "" else choice },
+                                    label = { Text(choice) },
                                 )
                             }
-                            if (choices.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                        deadlineAt?.let { deadline ->
+                            Text("Reminder", style = MaterialTheme.typography.labelLarge)
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item {
+                                    FilterChip(
+                                        selected = reminderAt == null,
+                                        onClick = { reminderAt = null },
+                                        label = { Text("Off") },
+                                    )
+                                }
+                                items(reminderChoices) { choice ->
+                                    val trigger = reminderTime(deadline, choice.daysBefore)
+                                    FilterChip(
+                                        selected = reminderAt == trigger,
+                                        onClick = {
+                                            reminderAt = trigger
+                                            if (
+                                                Build.VERSION.SDK_INT >= 33 &&
+                                                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                                                PackageManager.PERMISSION_GRANTED
+                                            ) {
+                                                notificationPermissionLauncher.launch(
+                                                    Manifest.permission.POST_NOTIFICATIONS,
+                                                )
+                                            }
+                                        },
+                                        label = { Text(choice.label) },
+                                    )
+                                }
+                            }
+                            Text(
+                                "Reminders are best-effort and may arrive a little late when Android is conserving battery.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
+            }
+        }
+    }
 
-                GoalTargetEditor(
-                    metric = metric,
-                    target = target,
-                    onTargetChange = { value ->
-                        target = if (metric == GoalMetricType.CURRENCY) {
-                            value.filter { it.isDigit() || it == '.' }.take(16)
-                        } else {
-                            value.filter(Char::isDigit).take(12)
-                        }
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = deadlineAt,
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        deadlineAt = datePickerState.selectedDateMillis?.plus(DAY_END_OFFSET)
+                        reminderAt = null
+                        showDatePicker = false
                     },
-                    unit = unit,
-                    onUnitChange = { selected ->
-                        val wasHours = unit == "hours"
-                        unit = selected
-                        if (metric == GoalMetricType.DURATION_MINUTES) {
-                            target = convertTimeTarget(target, wasHours, selected == "hours")
-                        }
-                    },
-                    customUnit = customUnit,
-                    onCustomUnitChange = { customUnit = it },
-                    isError = targetError,
+                    enabled = datePickerState.selectedDateMillis != null,
+                ) { Text("Set deadline") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun SuggestionCard(
+    suggestion: GoalSuggestion,
+    applied: Boolean,
+    onApply: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = KajuTheme.extendedColors.mint,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                metricChoicesLabel(suggestion.metricType),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (applied) "Understood" else "New suggestion",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(
+                    "${metricTitle(suggestion.metricType)} · " +
+                        formatMetricValue(
+                            suggestion.metricType,
+                            suggestion.targetValue,
+                            suggestion.unitLabel,
+                        ),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            TextButton(onClick = if (applied) onEdit else onApply) {
+                Text(if (applied) "Edit" else "Apply")
             }
         }
     }
@@ -490,20 +765,43 @@ private fun parseTarget(metric: GoalMetricType, value: String, unit: String): Lo
             .longValueExact()
             .takeIf { it > 0L }
     }.getOrNull()
-    GoalMetricType.DURATION_MINUTES -> value.toLongOrNull()
-        ?.takeIf { it > 0L }
-        ?.let { if (unit == "hours") Math.multiplyExact(it, 60L) else it }
+    GoalMetricType.DURATION_MINUTES -> runCatching {
+        BigDecimal(value)
+            .multiply(if (unit == "hours") BigDecimal("60") else BigDecimal.ONE)
+            .setScale(0, RoundingMode.UNNECESSARY)
+            .longValueExact()
+            .takeIf { it > 0L }
+    }.getOrNull()
     GoalMetricType.COUNT -> value.toLongOrNull()?.takeIf { it > 0L }
 }
 
 private fun editableTarget(goal: Goal): String = when (goal.metricType) {
     GoalMetricType.CURRENCY -> BigDecimal(goal.targetValue).movePointLeft(2).stripTrailingZeros().toPlainString()
     GoalMetricType.DURATION_MINUTES -> if (goal.unitLabel == "hours") {
-        (goal.targetValue / 60L).toString()
+        BigDecimal(goal.targetValue)
+            .divide(BigDecimal("60"), 4, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
     } else {
         goal.targetValue.toString()
     }
     else -> goal.targetValue.toString()
+}
+
+private fun editableTarget(suggestion: GoalSuggestion): String = when (suggestion.metricType) {
+    GoalMetricType.CURRENCY -> BigDecimal(suggestion.targetValue)
+        .movePointLeft(2)
+        .stripTrailingZeros()
+        .toPlainString()
+    GoalMetricType.DURATION_MINUTES -> if (suggestion.unitLabel == "hours") {
+        BigDecimal(suggestion.targetValue)
+            .divide(BigDecimal("60"), 4, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
+    } else {
+        suggestion.targetValue.toString()
+    }
+    else -> suggestion.targetValue.toString()
 }
 
 private fun defaultTarget(metric: GoalMetricType): String = when (metric) {
@@ -523,13 +821,43 @@ private fun defaultUnit(metric: GoalMetricType): String = when (metric) {
 }
 
 private fun convertTimeTarget(value: String, wasHours: Boolean, isHours: Boolean): String {
-    val amount = value.toLongOrNull() ?: return value
+    val amount = runCatching { BigDecimal(value) }.getOrNull() ?: return value
     return when {
-        wasHours && !isHours -> Math.multiplyExact(amount, 60L).toString()
-        !wasHours && isHours -> maxOf(1L, amount / 60L).toString()
+        wasHours && !isHours -> amount.multiply(BigDecimal("60")).stripTrailingZeros().toPlainString()
+        !wasHours && isHours -> amount.divide(BigDecimal("60"), 2, RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString()
         else -> value
     }
 }
+
+private fun metricTitle(metric: GoalMetricType): String = when (metric) {
+    GoalMetricType.COUNT -> "Count"
+    GoalMetricType.DURATION_MINUTES -> "Time"
+    GoalMetricType.PERCENTAGE -> "Percentage"
+    GoalMetricType.CURRENCY -> "Money"
+    GoalMetricType.BINARY -> "Done"
+}
+
+private fun metricChoicesLabel(metric: GoalMetricType): String = when (metric) {
+    GoalMetricType.COUNT -> "123"
+    GoalMetricType.DURATION_MINUTES -> "◷"
+    GoalMetricType.PERCENTAGE -> "%"
+    GoalMetricType.CURRENCY -> "₹"
+    GoalMetricType.BINARY -> "✓"
+}
+
+private fun recurrenceLabel(recurrence: GoalRecurrence): String = when (recurrence) {
+    GoalRecurrence.NONE -> "One time"
+    GoalRecurrence.DAILY -> "Daily"
+    GoalRecurrence.WEEKLY -> "Weekly"
+    GoalRecurrence.MONTHLY -> "Monthly"
+}
+
+private fun formatDeadline(epochMillis: Long): String =
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        .withZone(ZoneOffset.UTC)
+        .format(Instant.ofEpochMilli(epochMillis))
 
 private const val CUSTOM_UNIT = "__custom__"
 private val countUnits = listOf(
@@ -544,6 +872,24 @@ private val countUnits = listOf(
     CUSTOM_UNIT,
 )
 private val standardCountUnits = countUnits - CUSTOM_UNIT
+private val categoryChoices = listOf("Health", "Learning", "Money", "Work", "Personal")
+private data class ReminderChoice(val label: String, val daysBefore: Long)
+private val reminderChoices = listOf(
+    ReminderChoice("Due morning", 0),
+    ReminderChoice("1 day before", 1),
+    ReminderChoice("1 week before", 7),
+)
+
+private fun reminderTime(deadlineAt: Long, daysBefore: Long): Long {
+    val dueDate = Instant.ofEpochMilli(deadlineAt).atZone(ZoneOffset.UTC).toLocalDate()
+    return dueDate.minusDays(daysBefore)
+        .atTime(9, 0)
+        .atZone(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+}
+
+private const val DAY_END_OFFSET = 86_399_999L
 
 private fun initialUnit(goal: Goal?): String = when {
     goal == null -> defaultUnit(GoalMetricType.COUNT)

@@ -40,14 +40,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.chandsharma.kajugoals.domain.model.Goal
 import com.chandsharma.kajugoals.domain.model.ProgressRecord
+import com.chandsharma.kajugoals.domain.logic.GoalPaceCalculator
+import com.chandsharma.kajugoals.domain.logic.PaceStatus
 import com.chandsharma.kajugoals.ui.components.EmptyStateCard
 import com.chandsharma.kajugoals.ui.components.ConfirmProgressDeletionDialog
 import com.chandsharma.kajugoals.ui.components.ProgressRing
 import com.chandsharma.kajugoals.ui.format.formattedCurrent
 import com.chandsharma.kajugoals.ui.format.formattedDelta
 import com.chandsharma.kajugoals.ui.format.formattedTarget
+import com.chandsharma.kajugoals.ui.format.formatMetricValue
 import com.chandsharma.kajugoals.ui.format.formatTimestamp
 import com.chandsharma.kajugoals.ui.theme.KajuTheme
+import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +62,7 @@ fun GoalDetailScreen(
     onEdit: () -> Unit,
     onLog: () -> Unit,
     onDeleteProgress: (String) -> Unit,
+    onEditProgress: (ProgressRecord) -> Unit,
 ) {
     var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -101,6 +106,7 @@ fun GoalDetailScreen(
                 Text("This goal is no longer available")
             }
         } else {
+            val pace = GoalPaceCalculator.calculate(goal, System.currentTimeMillis())
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
@@ -113,6 +119,43 @@ fun GoalDetailScreen(
             ) {
                 item {
                     Text(goal.title, style = MaterialTheme.typography.headlineLarge)
+                }
+                if (goal.deadlineAt != null || goal.category.isNotBlank()) {
+                    item {
+                        androidx.compose.foundation.layout.Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(KajuTheme.extendedColors.glacier, RoundedCornerShape(24.dp))
+                                .padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(paceTitle(pace.status), style = MaterialTheme.typography.titleMedium)
+                            goal.deadlineAt?.let { deadline ->
+                                Text(
+                                    pace.daysRemaining?.let { "$it days left · due ${formatProgressDay(deadline)}" }
+                                        ?: "Due ${formatProgressDay(deadline)}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            pace.remainingPerWeek?.takeIf { it > 0.0 }?.let { weekly ->
+                                Text(
+                                    "About ${formatMetricValue(goal.metricType, ceil(weekly).toLong(), goal.unitLabel)} per week from here",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (goal.category.isNotBlank()) {
+                                Text(
+                                    goal.category,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+                if (goal.metricType != com.chandsharma.kajugoals.domain.model.GoalMetricType.BINARY) {
+                    item { GoalMilestones(goal.progressPercent) }
                 }
                 item {
                     Card(
@@ -187,6 +230,9 @@ fun GoalDetailScreen(
                                 )
                                 record.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                             }
+                            IconButton(onClick = { onEditProgress(record) }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit progress entry")
+                            }
                             IconButton(onClick = { pendingDeleteId = record.id }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete progress entry")
                             }
@@ -206,6 +252,54 @@ fun GoalDetailScreen(
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+private fun paceTitle(status: PaceStatus): String = when (status) {
+    PaceStatus.NO_DEADLINE -> "No deadline"
+    PaceStatus.COMPLETE -> "Finish line reached"
+    PaceStatus.ON_PACE -> "On pace"
+    PaceStatus.BEHIND -> "A little more pace needed"
+    PaceStatus.OVERDUE -> "Deadline passed"
+}
+
+@Composable
+private fun GoalMilestones(progressPercent: Int) {
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Milestones", style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            listOf(25, 50, 75, 100).forEach { milestone ->
+                val reached = progressPercent >= milestone
+                androidx.compose.foundation.layout.Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                if (reached) KajuTheme.extendedColors.mint else {
+                                    MaterialTheme.colorScheme.surfaceContainer
+                                },
+                                androidx.compose.foundation.shape.CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(if (reached) "✓" else "$milestone", style = MaterialTheme.typography.labelLarge)
+                    }
+                    Text("$milestone%", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

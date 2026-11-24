@@ -58,10 +58,63 @@ class GoalDaoTest {
                 createdAt = 2,
             ),
         )
+        dao.insertProgress(
+            ProgressEntryEntity(
+                id = "entry-2",
+                goalId = "goal-1",
+                delta = -2,
+                note = "Correction",
+                occurredAt = 3,
+                createdAt = 3,
+            ),
+        )
 
-        val summary = dao.observeGoalSummaries().first().single()
+        val summary = dao.observeGoalSummaries(0, 0, 0).first().single()
 
-        assertEquals(7, summary.loggedValue)
-        assertEquals(2L, summary.lastProgressAt)
+        assertEquals(5, summary.loggedValue)
+        assertEquals(3L, summary.lastProgressAt)
+    }
+
+    @Test
+    fun editedProgress_updatesValueDateAndMutationMetadata() = runTest {
+        dao.insertGoal(
+            GoalEntity(
+                id = "goal-2",
+                title = "Read books",
+                metricType = GoalMetricType.COUNT,
+                targetValue = 12,
+                unitLabel = "books",
+                status = GoalStatus.ACTIVE,
+                createdAt = 1,
+                updatedAt = 1,
+                sortOrder = 1,
+            ),
+        )
+        val original = ProgressEntryEntity(
+            id = "entry-edit",
+            goalId = "goal-2",
+            delta = 1,
+            note = null,
+            occurredAt = 2,
+            createdAt = 2,
+        )
+        dao.insertProgress(original)
+
+        dao.updateProgress(
+            original.copy(
+                delta = 3,
+                note = "Actually three",
+                occurredAt = 10,
+                updatedAt = 11,
+                mutationId = "edited",
+            ),
+        )
+
+        val updated = checkNotNull(dao.getProgress("entry-edit"))
+        assertEquals(3L, updated.delta)
+        assertEquals("Actually three", updated.note)
+        assertEquals(10L, updated.occurredAt)
+        assertEquals(11L, updated.updatedAt)
+        assertEquals("edited", updated.mutationId)
     }
 }

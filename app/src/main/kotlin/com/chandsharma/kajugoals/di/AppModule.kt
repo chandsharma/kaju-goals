@@ -8,6 +8,10 @@ import com.chandsharma.kajugoals.data.repository.IdGenerator
 import com.chandsharma.kajugoals.data.repository.RoomGoalRepository
 import com.chandsharma.kajugoals.data.repository.SyncScheduler
 import com.chandsharma.kajugoals.data.repository.TimeProvider
+import com.chandsharma.kajugoals.data.repository.GoalReminderScheduler
+import com.chandsharma.kajugoals.data.repository.WidgetUpdater
+import com.chandsharma.kajugoals.data.reminder.WorkManagerGoalReminderScheduler
+import com.chandsharma.kajugoals.widget.GlanceWidgetUpdater
 import com.chandsharma.kajugoals.data.sync.WorkManagerSyncScheduler
 import com.chandsharma.kajugoals.data.sync.DefaultDriveSyncCoordinator
 import com.chandsharma.kajugoals.data.sync.DriveSyncCoordinator
@@ -30,7 +34,10 @@ object AppModule {
             context,
             KajuGoalsDatabase::class.java,
             "kaju-goals.db",
-        ).addMigrations(KajuGoalsDatabase.MIGRATION_1_2)
+        ).addMigrations(
+            KajuGoalsDatabase.MIGRATION_1_2,
+            KajuGoalsDatabase.MIGRATION_2_3,
+        )
             .build()
 
     @Provides
@@ -43,11 +50,30 @@ object AppModule {
         timeProvider: TimeProvider,
         idGenerator: IdGenerator,
         syncScheduler: SyncScheduler,
-    ): GoalRepository = RoomGoalRepository(goalDao, timeProvider, idGenerator, syncScheduler)
+        reminderScheduler: GoalReminderScheduler,
+        widgetUpdater: WidgetUpdater,
+    ): GoalRepository = RoomGoalRepository(
+        goalDao,
+        timeProvider,
+        idGenerator,
+        syncScheduler,
+        reminderScheduler,
+        widgetUpdater,
+    )
 
     @Provides
     @Singleton
     fun provideSyncScheduler(scheduler: WorkManagerSyncScheduler): SyncScheduler = scheduler
+
+    @Provides
+    @Singleton
+    fun provideGoalReminderScheduler(
+        scheduler: WorkManagerGoalReminderScheduler,
+    ): GoalReminderScheduler = scheduler
+
+    @Provides
+    @Singleton
+    fun provideWidgetUpdater(updater: GlanceWidgetUpdater): WidgetUpdater = updater
 
     @Provides
     @Singleton

@@ -68,9 +68,18 @@ private class FakeGoalRepository(initialGoals: List<Goal>) : GoalRepository {
 
     override suspend fun updateGoal(goalId: String, draft: GoalDraft) = Unit
 
-    override suspend fun logProgress(goalId: String, delta: Long, note: String?): String = "entry"
+    override suspend fun logProgress(
+        goalId: String,
+        delta: Long,
+        note: String?,
+        occurredAt: Long?,
+    ): String = "entry"
+
+    override suspend fun updateProgress(entryId: String, delta: Long, note: String?, occurredAt: Long) = Unit
 
     override suspend fun deleteProgress(entryId: String) = Unit
 
     override suspend fun setGoalStatus(goalId: String, status: GoalStatus) = Unit
+
+    override suspend fun setGoalPinned(goalId: String, isPinned: Boolean) = Unit
 }

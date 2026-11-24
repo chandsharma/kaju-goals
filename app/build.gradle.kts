@@ -14,8 +14,8 @@ android {
         applicationId = "com.chandsharma.kajugoals"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0-dev"
+        versionCode = 2
+        versionName = "0.2.0-dev"
 
         testInstrumentationRunner = "com.chandsharma.kajugoals.KajuTestRunner"
     }
@@ -93,6 +93,8 @@ dependencies {
 
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.google.play.services.auth)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.hilt.android)
